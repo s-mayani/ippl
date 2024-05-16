@@ -34,6 +34,13 @@ if (ENABLE_FFT)
         ${MPI_CXX_LIBRARIES}
     )
 
+    add_executable (TestGaussianBoosted_convergence TestGaussianBoosted_convergence.cpp)
+    target_link_libraries (
+        TestGaussianBoosted_convergence
+        ${IPPL_LIBS}
+        ${MPI_CXX_LIBRARIES}
+    )
+
     add_executable (TestSphere TestSphere.cpp)
     target_link_libraries (
         TestSphere
