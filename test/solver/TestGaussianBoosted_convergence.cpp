@@ -127,9 +127,10 @@ void compute_convergence(std::string algorithm, int pt) {
     std::array<bool, 3> isParallel;
     isParallel.fill(true);
 
-    // unit box
+    // unit box in Lx and Ly
     T dx                      = 1.0 / pt;
-    T dz                      = 1.0 / (factor * pt);
+    // Lz is elongated and twize the number of gridpoints (see factor)
+    T dz                      = 4.0 / (factor * pt);
     ippl::Vector<T, 3> hx     = {dx, dx, dz};
     ippl::Vector<T, 3> origin = {0.0, 0.0, 0.0};
     Mesh_t<T> mesh(owned, hx, origin);
