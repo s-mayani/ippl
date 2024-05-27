@@ -15,6 +15,11 @@ namespace ippl {
 
     template <typename FieldLHS, typename FieldRHS>
     void FFTPeriodicPoissonSolver<FieldLHS, FieldRHS>::initialize() {
+
+        // start the timer
+        static IpplTimings::TimerRef initTimer = IpplTimings::getTimer("initialize");
+        IpplTimings::startTimer(initTimer);
+
         const Layout_t& layout_r = this->rhs_mp->getLayout();
         domain_m                 = layout_r.getDomain();
 
@@ -46,11 +51,24 @@ namespace ippl {
         }
 
         fft_mp = std::make_shared<FFT_t>(layout_r, *layoutComplex_mp, this->params_m);
+
+        IpplTimings::stopTimer(initTimer);
     }
 
     template <typename FieldLHS, typename FieldRHS>
     void FFTPeriodicPoissonSolver<FieldLHS, FieldRHS>::solve() {
+
+        // start the timer
+        static IpplTimings::TimerRef solveTimer = IpplTimings::getTimer("solve");
+        IpplTimings::startTimer(solveTimer);
+
+        // start the timer
+        static IpplTimings::TimerRef forwardTimer = IpplTimings::getTimer("forward FFT");
+        IpplTimings::startTimer(forwardTimer);
+
         fft_mp->transform(FORWARD, *this->rhs_mp, fieldComplex_m);
+
+        IpplTimings::stopTimer(forwardTimer);
 
         auto view        = fieldComplex_m.getView();
         const int nghost = fieldComplex_m.getNghost();
@@ -102,7 +120,13 @@ namespace ippl {
                         apply(view, args) *= factor;
                     });
 
+                // start the timer
+                static IpplTimings::TimerRef backwardTimer = IpplTimings::getTimer("backward FFT");
+                IpplTimings::startTimer(backwardTimer);
+
                 fft_mp->transform(BACKWARD, *this->rhs_mp, fieldComplex_m);
+
+                IpplTimings::stopTimer(backwardTimer);
 
                 break;
             }
@@ -165,5 +189,6 @@ namespace ippl {
             default:
                 throw IpplException("FFTPeriodicPoissonSolver::solve", "Unrecognized output_type");
         }
+        IpplTimings::stopTimer(solveTimer);
     }
 }  // namespace ippl
