@@ -51,7 +51,7 @@ namespace ippl {
         }
 
         fft_mp = std::make_shared<FFT_t>(layout_r, *layoutComplex_mp, this->params_m);
-        fft_mp->warmup(fieldComplex_m); // warmup the FFT
+        fft_mp->warmup(*this->rhs_mp, fieldComplex_m); // warmup the FFT
 
         IpplTimings::stopTimer(initTimer);
     }
