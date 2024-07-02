@@ -1,8 +1,5 @@
 #include "Ippl.h"
 
-#include "Meshes/Centering.h"
-#include "PoissonSolvers/FEMPoissonSolver.h"
-
 int main(int argc, char* argv[]) {
     ippl::initialize(argc, argv);
     {
@@ -12,7 +9,7 @@ int main(int argc, char* argv[]) {
         m << "Starting up Test Ghost cells fillHalo..." << endl;
 
         using T = double;
-        const unsigned int Dim = 2;
+        constexpr unsigned int Dim = 2;
 
         using Mesh_t   = ippl::UniformCartesian<T, Dim>;
         using Field_t  = ippl::Field<T, Dim, Mesh_t, Cell>;
@@ -27,8 +24,8 @@ int main(int argc, char* argv[]) {
         int numCellsPerDim       = numNodesPerDim - 1; 
         int numGhosts            = 1;
 
-        const ippl::Vector<unsigned, Dim> nodesPerDimVec(numNodesPerDim);
-        ippl::NDIndex<Dim> domain(nodesPerDimVec);
+        ippl::Index I(numNodesPerDim);
+        ippl::NDIndex<Dim> domain(I, I);
         ippl::Vector<T, Dim> cellSpacing((domain_end - domain_start) / static_cast<T>(numCellsPerDim));
         ippl::Vector<T, Dim> origin(domain_start);
         Mesh_t mesh(domain, cellSpacing, origin);
