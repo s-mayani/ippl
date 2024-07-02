@@ -22,6 +22,8 @@ namespace ippl {
 
         template <typename T, unsigned Dim, class... ViewArgs>
         void HaloCells<T, Dim, ViewArgs...>::fillHalo(view_type& view, Layout_t* layout) {
+            Inform m("");
+            m << "Inside fillHalo" << endl;
             exchangeBoundaries<assign>(view, layout, INTERNAL_TO_HALO);
         }
 
@@ -34,6 +36,11 @@ namespace ippl {
 
             auto& comm = layout->comm;
 
+            // debug
+            Inform m("");
+            Inform msg2all("", INFORM_ALL_NODES);
+            int myRank = Comm->rank();
+
             const neighbor_list& neighbors = layout->getNeighbors();
             const range_list &sendRanges   = layout->getNeighborsSendRange(),
                              &recvRanges   = layout->getNeighborsRecvRange();
@@ -43,6 +50,18 @@ namespace ippl {
                 totalRequests += componentNeighbors.size();
             }
 
+            // debug 
+            Comm->barrier();
+            msg2all << "Node " << myRank << " totalRequests: " << totalRequests << endl;
+            Comm->barrier();
+            m << "Inside exchange boundaries, before send" << endl;
+            for (const auto& componentNeighbors : neighbors) {
+                for (const auto& neighbor : componentNeighbors) {
+                    msg2all << "Node " << myRank << " neighbor: " << neighbor << endl;
+                }
+            }
+            Comm->barrier();
+
             using memory_space = typename view_type::memory_space;
             using buffer_type  = mpi::Communicator::buffer_type<memory_space>;
             std::vector<MPI_Request> requests(totalRequests);
@@ -50,6 +69,18 @@ namespace ippl {
             // sending loop
             constexpr size_t cubeCount = detail::countHypercubes(Dim) - 1;
             size_t requestIndex        = 0;
+
+            // debug
+            Comm->barrier();
+            for (size_t index = 0; index < cubeCount; index++) {
+                int sendTag = mpi::tag::HALO + index;
+                int recvTag = mpi::tag::HALO + Layout_t::getMatchingIndex(index);
+
+                std::cout << myRank <<  ", index = " << index << ", send = " << sendTag << ", recv = "
+                          << recvTag << ", mpitag = " << mpi::tag::HALO << std::endl;
+            }
+            Comm->barrier();
+
             for (size_t index = 0; index < cubeCount; index++) {
                 int tag                        = mpi::tag::HALO + index;
                 const auto& componentNeighbors = neighbors[index];
@@ -74,10 +105,15 @@ namespace ippl {
                     buffer_type buf = comm.template getBuffer<memory_space, T>(
                         mpi::tag::HALO_SEND + i * cubeCount + index, nsends);
 
+                    std::cout << "Node " << myRank << " sending to " << targetRank << " with tag " << tag << std::endl;
                     comm.isend(targetRank, tag, haloData_m, *buf, requests[requestIndex++], nsends);
                     buf->resetWritePos();
                 }
             }
+
+            Comm->barrier();
+            m << "Inside exchange boundaries, after send" << endl;
+            Comm->barrier();
 
             // receiving loop
             for (size_t index = 0; index < cubeCount; index++) {
@@ -98,6 +134,8 @@ namespace ippl {
                     buffer_type buf = comm.template getBuffer<memory_space, T>(
                         mpi::tag::HALO_RECV + i * cubeCount + index, nrecvs);
 
+                    std::cout << "Node " << myRank << " receiving from " << sourceRank << " with tag " << tag << std::endl;
+
                     comm.recv(sourceRank, tag, haloData_m, *buf, nrecvs * sizeof(T), nrecvs);
                     buf->resetReadPos();
 
@@ -105,9 +143,15 @@ namespace ippl {
                 }
             }
 
+            msg2all << "ID = " << myRank << ", receive loop done" << endl;
+
             if (totalRequests > 0) {
                 MPI_Waitall(totalRequests, requests.data(), MPI_STATUSES_IGNORE);
             }
+
+            Comm->barrier();
+            m << "after recv and waitall" << endl;
+            Comm->barrier();
         }
 
         template <typename T, unsigned Dim, class... ViewArgs>
