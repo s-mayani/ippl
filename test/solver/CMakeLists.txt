@@ -82,9 +82,9 @@ if (ENABLE_FFT)
         ${IPPL_LIBS}
         ${MPI_CXX_LIBRARIES}
     )
-    add_executable(TestHalo TestHalo.cpp)
+    add_executable(TestHaloCells TestHaloCells.cpp)
     target_link_libraries(
-        TestHalo
+        TestHaloCells
         ${IPPL_LIBS}
         ${MPI_CXX_LIBRARIES}
     )
