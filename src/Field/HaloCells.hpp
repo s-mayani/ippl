@@ -73,19 +73,22 @@ namespace ippl {
             // debug
             Comm->barrier();
             for (size_t index = 0; index < cubeCount; index++) {
-                int sendTag = mpi::tag::HALO + index;
-                int recvTag = mpi::tag::HALO + Layout_t::getMatchingIndex(index);
-
-                std::cout << myRank <<  ", index = " << index << ", send = " << sendTag << ", recv = "
-                          << recvTag << ", mpitag = " << mpi::tag::HALO << std::endl;
+                std::cout << "ID = " << myRank <<  ", index = " << index << ", match = "
+                          << Layout_t::getMatchingIndex(index) << ", mpitag = "
+                          << mpi::tag::HALO << std::endl;
             }
             Comm->barrier();
 
             for (size_t index = 0; index < cubeCount; index++) {
                 int tag                        = mpi::tag::HALO + index;
                 const auto& componentNeighbors = neighbors[index];
+
                 for (size_t i = 0; i < componentNeighbors.size(); i++) {
                     int targetRank = componentNeighbors[i];
+
+                    std::cout << "ID = " << myRank << ", index = " << index
+                              << ", componentNeighbors = " << targetRank << std::endl;
+                
 
                     bound_type range;
                     if (order == INTERNAL_TO_HALO) {
