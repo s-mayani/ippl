@@ -93,6 +93,11 @@ elseif("${IPPL_PLATFORMS}" STREQUAL "CUDA;OPENMP" OR "${IPPL_PLATFORMS}" STREQUA
     set(Kokkos_ENABLE_OPENMP ON CACHE BOOL "Enable Kokkos OpenMP Backend")
     set(Kokkos_ENABLE_CUDA ON CACHE BOOL "Enable Kokkos CUDA Backend")
 
+elseif("${IPPL_PLATFORMS}" STREQUAL "HIP")
+    message(STATUS "${Green}HIP backend enabled${ColourReset}")
+    set(Heffte_ENABLE_ROCM ON CACHE BOOL "Set Heffte ROCM Backend")
+    set(Kokkos_ENABLE_HIP ON CACHE BOOL "Enable Kokkos HIP Backend")
+
 else()
     message(FATAL_ERROR "Unknown or unsupported platform: ${IPPL_PLATFORMS}")
     # Handle unknown or unsupported platform
