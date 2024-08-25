@@ -10,6 +10,12 @@ link_directories (
     ${Kokkos_DIR}/..
 )
 
+
+set( LIBS_TO_LINK
+    ${Boost_LIBRARIES}
+    ${CMAKE_THREAD_LIBS_INIT}
+)
+
 set (IPPL_LIBS ippl)
 set (COMPILE_FLAGS ${OPAL_CXX_FLAGS})
 
@@ -43,6 +49,13 @@ target_link_libraries (
 add_executable (TestCos1 TestCos1.cpp)
 target_link_libraries (
     TestCos1
+    ${IPPL_LIBS}
+    ${MPI_CXX_LIBRARIES}
+)
+
+add_executable (Test Test.cpp)
+target_link_libraries (
+    Test
     ${IPPL_LIBS}
     ${MPI_CXX_LIBRARIES}
 )
