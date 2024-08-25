@@ -42,7 +42,7 @@ endif ()
 add_compile_options (-Wall)
 add_compile_options (-Wunused)
 add_compile_options (-Wextra)
-#¼add_compile_options (-Werror)
+#add_compile_options (-Werror)
 
 # allow deprecated functions
 add_compile_options (-Wno-deprecated-declarations)
@@ -50,6 +50,8 @@ if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     add_compile_options (-Wno-deprecated-copy)
     add_compile_options (-Wno-sign-compare)
 endif()
+
+add_compile_options (-lboost_system -lboost_filesystem)
 
 option (USE_STATIC_LIBRARIES "Link with static libraries if available" ON)
 
@@ -113,6 +115,11 @@ if(NOT Kokkos_FOUND)
     )
     FetchContent_MakeAvailable(kokkos)
 endif()
+find_package( Boost COMPONENTS thread system filesystem REQUIRED ) #whatever libs you need
+include_directories( ${Boost_INCLUDE_DIRS} )
+find_package( Threads )
+
+
 # Select flags.
 set (CMAKE_CXX_STANDARD 20)
 set (CMAKE_CUDA_EXTENSIONS OFF)
@@ -122,7 +129,7 @@ set (CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINGO} -O3 -g ")
 set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
 #set (CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g")
 
-if (NOT "${IPPL_PLATFORMS}" STREQUAL "CUDA" AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     # Use sanitizer flags for GCC or Clang only
     set (CMAKE_CXX_FLAGS_DEBUG  "${CMAKE_CXX_FLAGS_DEBUG} -fsanitize=address,undefined")
 endif ()
