@@ -83,14 +83,14 @@ void dumpField(CxField_t& field, std::string what) {
 
     fout << std::endl;
 
-    for (int i = localIdx[0].first(); i <= localIdx[0].last(); i++) {
-        for (int j = localIdx[1].first(); j <= localIdx[1].last(); j++) {
-            for (int k = localIdx[2].first(); k <= localIdx[2].last(); k++) {
+    for (int i = localIdx[0].first() +1; i <= localIdx[0].last() + 1; i++) {
+        for (int j = localIdx[1].first() +1; j <= localIdx[1].last() + 1; j++) {
+            for (int k = localIdx[2].first() +1; k <= localIdx[2].last() + 1; k++) {
                 
                 // define the physical points (cell-centered)
-                const double x = i * spacing[0] + origin[0];        
-                const double y = j * spacing[1] + origin[1];        
-                const double z = k * spacing[2] + origin[2];     
+                const double x = (i + 0.5) * spacing[0] + origin[0];        
+                const double y = (j + 0.5) * spacing[1] + origin[1];        
+                const double z = (k + 0.5) * spacing[2] + origin[2];     
 
                 const double a = field_hostV(i,j,k).real();
                 const double b = field_hostV(i,j,k).imag();
@@ -132,6 +132,15 @@ int main(int argc, char* argv[]) {
 
         CxField_t rho(mesh, layout);
 
+        /*typedef ippl::BConds<CxField_t, dim> bc_type;
+        bc_type bcField;
+
+        for (unsigned int i = 0; i < 6; ++i) {
+            bcField[i] = std::make_shared<ippl::PeriodicFace<CxField_t>>(i);
+        }
+
+        rho.setFieldBC(bcField);*/
+
         ippl::ParameterList fftParams;
 
         fftParams.add("use_heffte_defaults", true);
@@ -148,7 +157,8 @@ int main(int argc, char* argv[]) {
         const auto& ldom = layout.getLocalNDIndex();
 
         Kokkos::parallel_for(
-            "Assign rho field", rho.getFieldRangePolicy(),
+            "Assign rho field", Kokkos::MDRangePolicy<Kokkos::Rank<3>>({nghost, nghost, nghost},
+              {view_rho.extent(0) - nghost, view_rho.extent(1) - nghost, view_rho.extent(2) - nghost}),
             KOKKOS_LAMBDA(const int i, const int j, const int k) {
                 // go from local to global indices
                 const int ig = i + ldom[0].first() - nghost;
@@ -160,8 +170,10 @@ int main(int argc, char* argv[]) {
                 double y = (jg + 0.5) * hx[1] + origin[1];
                 double z = (kg + 0.5) * hx[2] + origin[2];
 
-                view_rho(i, j, k).real() = gaussian(x, y, z, 4, 32);
+                view_rho(i, j, k).real() = gaussian(x, y, z, 4, 32) + 0.1;
             });
+
+        rho.fillHalo();
 
         dumpField(rho, "rho");
 

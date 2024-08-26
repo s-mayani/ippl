@@ -58,6 +58,7 @@ target_link_libraries (
     Test
     ${IPPL_LIBS}
     ${MPI_CXX_LIBRARIES}
+    ${LIBS_TO_LINK}
 )
 # vi: set et ts=4 sw=4 sts=4:
 
