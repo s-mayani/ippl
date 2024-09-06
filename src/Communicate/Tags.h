@@ -32,13 +32,13 @@ namespace ippl {
                 PARTICLE_RECV = 25000,
 
                 // FFT Poisson Solver
-                SOLVER_SEND = 20000,
-                SOLVER_RECV = 25000,
-                VICO_SEND   = 26000,
-                VICO_RECV   = 31000,
+                SOLVER_SEND = 7000,
+                SOLVER_RECV = 23000,
+                VICO_SEND   = 24000,
+                VICO_RECV   = 41000,
 
-                OPEN_SOLVER = 32000,
-                VICO_SOLVER = 32001
+                OPEN_SOLVER = 42000,
+                VICO_SOLVER = 42001
             };
         }  // namespace tag
     }      // namespace mpi
