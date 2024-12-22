@@ -140,10 +140,10 @@ namespace ippl {
         if (layout_m->comm.size() > 1) {
             halo_m.fillHalo(dview_m, layout_m);
         }
-        if (layout_m->isAllPeriodic_m) {
-            using Op = typename detail::HaloCells<T, Dim, ViewArgs...>::assign;
-            halo_m.template applyPeriodicSerialDim<Op>(dview_m, layout_m, nghost_m);
-        }
+        //if (layout_m->isAllPeriodic_m) {
+        using Op = typename detail::HaloCells<T, Dim, ViewArgs...>::assign;
+        halo_m.template applyPeriodicSerialDim<Op>(dview_m, layout_m, nghost_m);
+        //}
     }
 
     template <typename T, unsigned Dim, class... ViewArgs>
@@ -151,10 +151,10 @@ namespace ippl {
         if (layout_m->comm.size() > 1) {
             halo_m.accumulateHalo(dview_m, layout_m);
         }
-        if (layout_m->isAllPeriodic_m) {
-            using Op = typename detail::HaloCells<T, Dim, ViewArgs...>::rhs_plus_assign;
-            halo_m.template applyPeriodicSerialDim<Op>(dview_m, layout_m, nghost_m);
-        }
+        //if (layout_m->isAllPeriodic_m) {
+        using Op = typename detail::HaloCells<T, Dim, ViewArgs...>::rhs_plus_assign;
+        halo_m.template applyPeriodicSerialDim<Op>(dview_m, layout_m, nghost_m);
+        //}
     }
 
     template <typename T, unsigned Dim, class... ViewArgs>
