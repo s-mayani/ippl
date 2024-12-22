@@ -72,7 +72,8 @@ namespace ippl {
 
             KOKKOS_INLINE_FUNCTION void operator()(const size_t& i) const {
                 value_type& value = this->view_m(i)[this->dim_m];
-                value             = value - extent_m * (int)((value - middle_m) * 2 / extent_m);
+                //value             = value - extent_m * (int)((value - middle_m) * 2 / extent_m);
+                value             = value - extent_m * Kokkos::round((value - middle_m) / extent_m);
             }
 
             KOKKOS_DEFAULTED_FUNCTION
