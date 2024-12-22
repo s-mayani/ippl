@@ -16,11 +16,11 @@ class ParticleContainer : public ippl::ParticleBase<ippl::ParticleSpatialLayout<
     private:
         PLayout_t<T, Dim> pl_m;
     public:
-        ParticleContainer(Mesh_t<Dim>& mesh, FieldLayout_t<Dim>& FL)
+        ParticleContainer(Mesh_t<Dim>& mesh, FieldLayout_t<Dim>& FL, bool isAllPeriodic)
         : pl_m(FL, mesh) {
-        this->initialize(pl_m);
-        registerAttributes();
-        setupBCs();
+            this->initialize(pl_m);
+            registerAttributes();
+            setupBCs(isAllPeriodic);
         }
 
         ~ParticleContainer(){}
@@ -34,10 +34,17 @@ class ParticleContainer : public ippl::ParticleBase<ippl::ParticleSpatialLayout<
 		this->addAttribute(P);
 		this->addAttribute(E);
 	}
-	void setupBCs() { setBCAllPeriodic(); }
+	void setupBCs(bool isAllPeriodic) { 
+        if (isAllPeriodic) {
+            setBCAllPeriodic();
+        } else {
+            setBCAllOpen();
+        }
+    }
 
     private:
        void setBCAllPeriodic() { this->setParticleBC(ippl::BC::PERIODIC); }
+       void setBCAllOpen() { this->setParticleBC(ippl::BC::NO); }
 };
 
 #endif

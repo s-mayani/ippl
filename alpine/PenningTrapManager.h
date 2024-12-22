@@ -70,10 +70,13 @@ public:
         m << "Discretization:" << endl << "nt " << this->nt_m << " Np= " << this->totalP_m << " grid = " << this->nr_m << endl;
 
         this->isAllPeriodic_m = true;
+        if (this->solver_m == "OPEN") {
+            this->isAllPeriodic_m = false;
+        }
 
         this->setFieldContainer( std::make_shared<FieldContainer_t>( this->hr_m, this->rmin_m, this->rmax_m, this->decomp_m, this->domain_m, this->origin_m, this->isAllPeriodic_m) );
 
-        this->setParticleContainer( std::make_shared<ParticleContainer_t>( this->fcontainer_m->getMesh(), this->fcontainer_m->getFL()) );
+        this->setParticleContainer( std::make_shared<ParticleContainer_t>( this->fcontainer_m->getMesh(), this->fcontainer_m->getFL(), this->isAllPeriodic_m) );
 
         this->fcontainer_m->initializeFields(this->solver_m);
 
