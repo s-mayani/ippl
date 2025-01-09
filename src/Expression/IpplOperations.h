@@ -7,6 +7,7 @@
 
 #include <Kokkos_MathematicalFunctions.hpp>
 #include <tuple>
+#include "Utility/IpplTimings.h"
 
 namespace ippl {
     /*!
@@ -266,12 +267,16 @@ namespace ippl {
              * Vector::dot
              */
             KOKKOS_INLINE_FUNCTION auto apply() const {
+                static IpplTimings::TimerRef apply = IpplTimings::getTimer("apply");
+                IpplTimings::startTimer(apply);
+
                 typename E1::value_type res = 0.0;
                 // Equivalent computation in 3D:
                 // u_m[0] * v_m[0] + u_m[1] * v_m[1] + u_m[2] * v_m[2]
                 for (size_t i = 0; i < E1::dim; ++i) {
                     res += u_m[i] * v_m[i];
                 }
+                IpplTimings::stopTimer(apply);
                 return res;
             }
 

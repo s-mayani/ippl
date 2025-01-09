@@ -403,7 +403,18 @@ namespace ippl {
         Kokkos::parallel_for(
             "Loop over elements", policy_type(0, elementIndices.extent(0)),
             KOKKOS_CLASS_LAMBDA(const size_t index) {
+
+                // start a timer
+                static IpplTimings::TimerRef getElementIndex = IpplTimings::getTimer("getElementIndex");
+                IpplTimings::startTimer(getElementIndex);
+
                 const size_t elementIndex                            = elementIndices(index);
+
+                IpplTimings::stopTimer(getElementIndex);
+
+                static IpplTimings::TimerRef dofs = IpplTimings::getTimer("dofs");
+                IpplTimings::startTimer(dofs);
+
                 const Vector<size_t, this->numElementDOFs> local_dof = this->getLocalDOFIndices();
                 const Vector<size_t, this->numElementDOFs> global_dofs =
                     this->getGlobalDOFIndices(elementIndex);
@@ -413,21 +424,48 @@ namespace ippl {
                     global_dof_ndindices[i] = this->getMeshVertexNDIndex(global_dofs[i]);
                 }
 
+                IpplTimings::stopTimer(dofs);
+
+                static IpplTimings::TimerRef elementMatrix = IpplTimings::getTimer("elementMatrix");
+                IpplTimings::startTimer(elementMatrix);
+
                 // local DOF indices
                 size_t i, j;
+
+                static IpplTimings::TimerRef memAlloc = IpplTimings::getTimer("memAlloc");
+                IpplTimings::startTimer(memAlloc);
 
                 // Element matrix
                 Vector<Vector<T, this->numElementDOFs>, this->numElementDOFs> A_K;
 
+                IpplTimings::stopTimer(memAlloc);
+                static IpplTimings::TimerRef forLoop = IpplTimings::getTimer("forLoop");
+                IpplTimings::startTimer(forLoop);
+
                 // 1. Compute the Galerkin element matrix A_K
                 for (i = 0; i < this->numElementDOFs; ++i) {
                     for (j = 0; j < this->numElementDOFs; ++j) {
+                        static IpplTimings::TimerRef setZero = IpplTimings::getTimer("setZero");
+                        IpplTimings::startTimer(setZero);
+
                         A_K[i][j] = 0.0;
+
+                        IpplTimings::stopTimer(setZero);
+
                         for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
+                            static IpplTimings::TimerRef evalFunc = IpplTimings::getTimer("evalFunc");
+                            IpplTimings::startTimer(evalFunc);
                             A_K[i][j] += w[k] * evalFunction(i, j, grad_b_q[k]);
+                            IpplTimings::stopTimer(evalFunc);
                         }
                     }
                 }
+                IpplTimings::stopTimer(forLoop);
+
+                IpplTimings::stopTimer(elementMatrix);
+
+                static IpplTimings::TimerRef contrib = IpplTimings::getTimer("contrib");
+                IpplTimings::startTimer(contrib);
 
                 // global DOF n-dimensional indices (Vector of N indices representing indices in
                 // each dimension)
@@ -463,6 +501,7 @@ namespace ippl {
                         apply(resultView, I_nd) += A_K[i][j] * apply(view, J_nd);
                     }
                 }
+                IpplTimings::stopTimer(contrib);
             });
         IpplTimings::stopTimer(outer_loop);
 
