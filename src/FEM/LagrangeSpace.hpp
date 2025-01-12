@@ -395,6 +395,25 @@ namespace ippl {
         using exec_space  = typename Kokkos::View<const size_t*>::execution_space;
         using policy_type = Kokkos::RangePolicy<exec_space>;
 
+        /*************/
+
+        static IpplTimings::TimerRef extraComputation = IpplTimings::getTimer("extraComputation");
+        IpplTimings::startTimer(extraComputation);
+
+        const indices_t zeroNdIndex = Vector<size_t, Dim>(0);
+
+        // Compute Inverse Transpose Transformation Jacobian ()
+        const Vector<T, Dim> DPhiInvT =
+            this->ref_element_m.getInverseTransposeTransformationJacobian(this->getElementMeshVertexPoints(zeroNdIndex));
+
+        // Compute absolute value of the determinant of the transformation jacobian (|det D
+        // Phi_K|)
+        const T absDetDPhi = Kokkos::abs(
+            this->ref_element_m.getDeterminantOfTransformationJacobian(this->getElementMeshVertexPoints(zeroNdIndex)));
+
+        IpplTimings::stopTimer(extraComputation);
+        /*************/
+
         // start a timer
         static IpplTimings::TimerRef outer_loop = IpplTimings::getTimer("evaluateAx: outer loop");
         IpplTimings::startTimer(outer_loop);
@@ -455,7 +474,8 @@ namespace ippl {
                         for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
                             static IpplTimings::TimerRef evalFunc = IpplTimings::getTimer("evalFunc");
                             IpplTimings::startTimer(evalFunc);
-                            A_K[i][j] += w[k] * evalFunction(i, j, grad_b_q[k]);
+                            //A_K[i][j] += w[k] * evalFunction(i, j, grad_b_q[k]);
+                            A_K[i][j] += w[k] * dot((DPhiInvT * grad_b_q[k][j]), (DPhiInvT * grad_b_q[k][i])).apply() * absDetDPhi;
                             IpplTimings::stopTimer(evalFunc);
                         }
                     }
