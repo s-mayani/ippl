@@ -480,7 +480,9 @@ namespace ippl {
                             static IpplTimings::TimerRef evalFunc = IpplTimings::getTimer("evalFunc");
                             IpplTimings::startTimer(evalFunc);
                             //A_K[i][j] += w[k] * evalFunction(i, j, grad_b_q[k]);
-                            A_K[i][j] += w[k] * dot((DPhiInvT * grad_b_q[k][j]), (DPhiInvT * grad_b_q[k][i])).apply() * absDetDPhi;
+                            //A_K[i][j] += w[k] * dot((DPhiInvT * grad_b_q[k][j]), (DPhiInvT * grad_b_q[k][i])).apply() * absDetDPhi;
+                            //A_K[i][j] += 0.0;
+                            A_K[i][j] += w[k] * (((DPhiInvT * grad_b_q[k][j])[0]*(DPhiInvT * grad_b_q[k][i])[0]) + ((DPhiInvT * grad_b_q[k][j])[1]*(DPhiInvT * grad_b_q[k][i])[1]) + ((DPhiInvT * grad_b_q[k][j])[2]*(DPhiInvT * grad_b_q[k][i])[2])) * absDetDPhi;
                             IpplTimings::stopTimer(evalFunc);
                         }
                     }
