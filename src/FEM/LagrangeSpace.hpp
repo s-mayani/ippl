@@ -457,13 +457,18 @@ namespace ippl {
                 // Element matrix
                 Vector<Vector<T, this->numElementDOFs>, this->numElementDOFs> A_K;
 
+                // make dofs a variable (i.e. remove from for loop)
+                size_t numdofs = this->numElementDOFs;
+                // same for quadrature nodes
+                size_t ks = QuadratureType::numElementNodes;
+
                 IpplTimings::stopTimer(memAlloc);
                 static IpplTimings::TimerRef forLoop = IpplTimings::getTimer("forLoop");
                 IpplTimings::startTimer(forLoop);
 
                 // 1. Compute the Galerkin element matrix A_K
-                for (i = 0; i < this->numElementDOFs; ++i) {
-                    for (j = 0; j < this->numElementDOFs; ++j) {
+                for (i = 0; i < numdofs; ++i) {
+                    for (j = 0; j < numdofs; ++j) {
                         static IpplTimings::TimerRef setZero = IpplTimings::getTimer("setZero");
                         IpplTimings::startTimer(setZero);
 
@@ -471,7 +476,7 @@ namespace ippl {
 
                         IpplTimings::stopTimer(setZero);
 
-                        for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
+                        for (size_t k = 0; k < ks; ++k) {
                             static IpplTimings::TimerRef evalFunc = IpplTimings::getTimer("evalFunc");
                             IpplTimings::startTimer(evalFunc);
                             //A_K[i][j] += w[k] * evalFunction(i, j, grad_b_q[k]);
