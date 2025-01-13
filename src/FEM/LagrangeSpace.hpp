@@ -457,18 +457,13 @@ namespace ippl {
                 // Element matrix
                 Vector<Vector<T, this->numElementDOFs>, this->numElementDOFs> A_K;
 
-                // make dofs a variable (i.e. remove from for loop)
-                size_t numdofs = this->numElementDOFs;
-                // same for quadrature nodes
-                size_t ks = QuadratureType::numElementNodes;
-
                 IpplTimings::stopTimer(memAlloc);
                 static IpplTimings::TimerRef forLoop = IpplTimings::getTimer("forLoop");
                 IpplTimings::startTimer(forLoop);
 
                 // 1. Compute the Galerkin element matrix A_K
-                for (i = 0; i < numdofs; ++i) {
-                    for (j = 0; j < numdofs; ++j) {
+                for (i = 0; i < this->numElementDOFs; ++i) {
+                    for (j = 0; j < this->numElementDOFs; ++j) {
                         static IpplTimings::TimerRef setZero = IpplTimings::getTimer("setZero");
                         IpplTimings::startTimer(setZero);
 
@@ -476,12 +471,10 @@ namespace ippl {
 
                         IpplTimings::stopTimer(setZero);
 
-                        for (size_t k = 0; k < ks; ++k) {
+                        for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
                             static IpplTimings::TimerRef evalFunc = IpplTimings::getTimer("evalFunc");
                             IpplTimings::startTimer(evalFunc);
-                            //A_K[i][j] += w[k] * evalFunction(i, j, grad_b_q[k]);
                             //A_K[i][j] += w[k] * dot((DPhiInvT * grad_b_q[k][j]), (DPhiInvT * grad_b_q[k][i])).apply() * absDetDPhi;
-                            //A_K[i][j] += 0.0;
                             A_K[i][j] += w[k] * (((DPhiInvT * grad_b_q[k][j])[0]*(DPhiInvT * grad_b_q[k][i])[0]) + ((DPhiInvT * grad_b_q[k][j])[1]*(DPhiInvT * grad_b_q[k][i])[1]) + ((DPhiInvT * grad_b_q[k][j])[2]*(DPhiInvT * grad_b_q[k][i])[2])) * absDetDPhi;
                             IpplTimings::stopTimer(evalFunc);
                         }
