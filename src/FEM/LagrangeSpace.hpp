@@ -396,7 +396,7 @@ namespace ippl {
         using policy_type = Kokkos::RangePolicy<exec_space>;
 
         /*************/
-
+        /*
         static IpplTimings::TimerRef extraComputation = IpplTimings::getTimer("extraComputation");
         IpplTimings::startTimer(extraComputation);
 
@@ -412,6 +412,7 @@ namespace ippl {
             this->ref_element_m.getDeterminantOfTransformationJacobian(this->getElementMeshVertexPoints(zeroNdIndex)));
 
         IpplTimings::stopTimer(extraComputation);
+        */
         /*************/
 
         // start a timer
@@ -474,8 +475,9 @@ namespace ippl {
                         for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
                             static IpplTimings::TimerRef evalFunc = IpplTimings::getTimer("evalFunc");
                             IpplTimings::startTimer(evalFunc);
+                            A_K[i][j] += w[k] * evalFunction(i, j, grad_b_q[k]);
                             //A_K[i][j] += w[k] * dot((DPhiInvT * grad_b_q[k][j]), (DPhiInvT * grad_b_q[k][i])).apply() * absDetDPhi;
-                            A_K[i][j] += w[k] * (((DPhiInvT * grad_b_q[k][j])[0]*(DPhiInvT * grad_b_q[k][i])[0]) + ((DPhiInvT * grad_b_q[k][j])[1]*(DPhiInvT * grad_b_q[k][i])[1]) + ((DPhiInvT * grad_b_q[k][j])[2]*(DPhiInvT * grad_b_q[k][i])[2])) * absDetDPhi;
+                            //A_K[i][j] += w[k] * (((DPhiInvT * grad_b_q[k][j])[0]*(DPhiInvT * grad_b_q[k][i])[0]) + ((DPhiInvT * grad_b_q[k][j])[1]*(DPhiInvT * grad_b_q[k][i])[1]) + ((DPhiInvT * grad_b_q[k][j])[2]*(DPhiInvT * grad_b_q[k][i])[2])) * absDetDPhi;
                             IpplTimings::stopTimer(evalFunc);
                         }
                     }
