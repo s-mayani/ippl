@@ -352,6 +352,18 @@ namespace ippl {
                            FieldRHS>::evaluateAx(FieldLHS& field, F& evalFunction) const {
         Inform m("");
 
+        // timers for evalAx element matrix computation
+        static IpplTimings::TimerRef outer_loop = IpplTimings::getTimer("evaluateAx: outer loop");
+        static IpplTimings::TimerRef dofs = IpplTimings::getTimer("dofs");
+        static IpplTimings::TimerRef elementMatrix = IpplTimings::getTimer("elementMatrix");
+        static IpplTimings::TimerRef getElementIndex = IpplTimings::getTimer("getElementIndex");
+        static IpplTimings::TimerRef memAlloc = IpplTimings::getTimer("memAlloc");
+        static IpplTimings::TimerRef forLoop = IpplTimings::getTimer("forLoop");
+        static IpplTimings::TimerRef setZero = IpplTimings::getTimer("setZero");
+        static IpplTimings::TimerRef evalFunc = IpplTimings::getTimer("evalFunc");
+        static IpplTimings::TimerRef contrib = IpplTimings::getTimer("contrib");
+        static IpplTimings::TimerRef quadratureLoop = IpplTimings::getTimer("quadratureLoop");
+
         // start a timer
         static IpplTimings::TimerRef evalAx = IpplTimings::getTimer("evaluateAx");
         IpplTimings::startTimer(evalAx);
@@ -395,28 +407,7 @@ namespace ippl {
         using exec_space  = typename Kokkos::View<const size_t*>::execution_space;
         using policy_type = Kokkos::RangePolicy<exec_space>;
 
-        /*************/
-        /*
-        static IpplTimings::TimerRef extraComputation = IpplTimings::getTimer("extraComputation");
-        IpplTimings::startTimer(extraComputation);
-
-        const indices_t zeroNdIndex = Vector<size_t, Dim>(0);
-
-        // Compute Inverse Transpose Transformation Jacobian ()
-        const Vector<T, Dim> DPhiInvT =
-            this->ref_element_m.getInverseTransposeTransformationJacobian(this->getElementMeshVertexPoints(zeroNdIndex));
-
-        // Compute absolute value of the determinant of the transformation jacobian (|det D
-        // Phi_K|)
-        const T absDetDPhi = Kokkos::abs(
-            this->ref_element_m.getDeterminantOfTransformationJacobian(this->getElementMeshVertexPoints(zeroNdIndex)));
-
-        IpplTimings::stopTimer(extraComputation);
-        */
-        /*************/
-
         // start a timer
-        static IpplTimings::TimerRef outer_loop = IpplTimings::getTimer("evaluateAx: outer loop");
         IpplTimings::startTimer(outer_loop);
 
         // Loop over elements to compute contributions
@@ -425,14 +416,12 @@ namespace ippl {
             KOKKOS_CLASS_LAMBDA(const size_t index) {
 
                 // start a timer
-                static IpplTimings::TimerRef getElementIndex = IpplTimings::getTimer("getElementIndex");
                 IpplTimings::startTimer(getElementIndex);
 
                 const size_t elementIndex                            = elementIndices(index);
 
                 IpplTimings::stopTimer(getElementIndex);
 
-                static IpplTimings::TimerRef dofs = IpplTimings::getTimer("dofs");
                 IpplTimings::startTimer(dofs);
 
                 const Vector<size_t, this->numElementDOFs> local_dof = this->getLocalDOFIndices();
@@ -446,47 +435,42 @@ namespace ippl {
 
                 IpplTimings::stopTimer(dofs);
 
-                static IpplTimings::TimerRef elementMatrix = IpplTimings::getTimer("elementMatrix");
                 IpplTimings::startTimer(elementMatrix);
 
                 // local DOF indices
                 size_t i, j;
 
-                static IpplTimings::TimerRef memAlloc = IpplTimings::getTimer("memAlloc");
                 IpplTimings::startTimer(memAlloc);
 
                 // Element matrix
                 Vector<Vector<T, this->numElementDOFs>, this->numElementDOFs> A_K;
 
                 IpplTimings::stopTimer(memAlloc);
-                static IpplTimings::TimerRef forLoop = IpplTimings::getTimer("forLoop");
+
                 IpplTimings::startTimer(forLoop);
 
                 // 1. Compute the Galerkin element matrix A_K
                 for (i = 0; i < this->numElementDOFs; ++i) {
                     for (j = 0; j < this->numElementDOFs; ++j) {
-                        static IpplTimings::TimerRef setZero = IpplTimings::getTimer("setZero");
                         IpplTimings::startTimer(setZero);
-
                         A_K[i][j] = 0.0;
-
                         IpplTimings::stopTimer(setZero);
 
+                        IpplTimings::startTimer(quadratureLoop);
                         for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
-                            static IpplTimings::TimerRef evalFunc = IpplTimings::getTimer("evalFunc");
                             IpplTimings::startTimer(evalFunc);
                             A_K[i][j] += w[k] * evalFunction(i, j, grad_b_q[k]);
                             //A_K[i][j] += w[k] * dot((DPhiInvT * grad_b_q[k][j]), (DPhiInvT * grad_b_q[k][i])).apply() * absDetDPhi;
                             //A_K[i][j] += w[k] * (((DPhiInvT * grad_b_q[k][j])[0]*(DPhiInvT * grad_b_q[k][i])[0]) + ((DPhiInvT * grad_b_q[k][j])[1]*(DPhiInvT * grad_b_q[k][i])[1]) + ((DPhiInvT * grad_b_q[k][j])[2]*(DPhiInvT * grad_b_q[k][i])[2])) * absDetDPhi;
                             IpplTimings::stopTimer(evalFunc);
                         }
+                        IpplTimings::stopTimer(quadratureLoop);
                     }
                 }
                 IpplTimings::stopTimer(forLoop);
 
                 IpplTimings::stopTimer(elementMatrix);
 
-                static IpplTimings::TimerRef contrib = IpplTimings::getTimer("contrib");
                 IpplTimings::startTimer(contrib);
 
                 // global DOF n-dimensional indices (Vector of N indices representing indices in
