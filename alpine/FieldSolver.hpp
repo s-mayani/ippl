@@ -43,6 +43,8 @@ class FieldSolver : public ippl::FieldSolverBase<T, Dim> {
             initP3MSolver();
         } else if (this->getStype() == "OPEN") {
             initOpenSolver();
+        } else if (this->getStype() == "NONE") {
+            initNullSolver();
         } else {
             m << "No solver matches the argument" << endl;
         }
@@ -97,6 +99,8 @@ class FieldSolver : public ippl::FieldSolverBase<T, Dim> {
             if constexpr (Dim == 3) {
                 std::get<OpenSolver_t<T, Dim>>(this->getSolver()).solve();
             }
+        } else if (this->getStype() == "NONE") {
+            std::get<NullSolver_t<T, Dim>>(this->getSolver()).solve();
         } else {
             throw std::runtime_error("Unknown solver type");
         }
@@ -182,6 +186,11 @@ class FieldSolver : public ippl::FieldSolverBase<T, Dim> {
         } else {
             throw std::runtime_error("Unsupported dimensionality for OPEN solver");
         }
+    }
+
+    void initNullSolver() {
+        ippl::ParameterList sp;
+        initSolverWithParams<NullSolver_t<T, Dim>>(sp);
     }
 };
 #endif
