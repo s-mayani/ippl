@@ -397,6 +397,13 @@ namespace ippl {
 
         // start a timer
         static IpplTimings::TimerRef outer_loop = IpplTimings::getTimer("evaluateAx: outer loop");
+
+        // more timers for evalAx
+        static IpplTimings::TimerRef localMatrix   = IpplTimings::getTimer("localMatrix");
+        static IpplTimings::TimerRef setToZero     = IpplTimings::getTimer("setToZero");
+        static IpplTimings::TimerRef quadratureSum = IpplTimings::getTimer("quadratureSum");
+        static IpplTimings::TimerRef evalTimer     = IpplTimings::getTimer("evalTimer");
+        
         IpplTimings::startTimer(outer_loop);
 
         // Loop over elements to compute contributions
@@ -420,14 +427,22 @@ namespace ippl {
                 Vector<Vector<T, this->numElementDOFs>, this->numElementDOFs> A_K;
 
                 // 1. Compute the Galerkin element matrix A_K
+                IpplTimings::startTimer(localMatrix);
                 for (i = 0; i < this->numElementDOFs; ++i) {
                     for (j = 0; j < this->numElementDOFs; ++j) {
+                        IpplTimings::startTimer(setToZero);
                         A_K[i][j] = 0.0;
+                        IpplTimings::stopTimer(setToZero);
+                        IpplTimings::startTimer(quadratureSum);
                         for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
+                            IpplTimings::startTimer(evalTimer);
                             A_K[i][j] += w[k] * evalFunction(i, j, grad_b_q[k]);
+                            IpplTimings::stopTimer(evalTimer);
                         }
+                        IpplTimings::stopTimer(quadratureSum);
                     }
                 }
+                IpplTimings::stopTimer(localMatrix);
 
                 // global DOF n-dimensional indices (Vector of N indices representing indices in
                 // each dimension)
