@@ -17,7 +17,7 @@ KOKKOS_INLINE_FUNCTION T gaussian3D(ippl::Vector<T, 3> x_vec, const T& sigma = 0
     const T z  = x_vec[2];
 
     const T prefactor = (1.0 / Kokkos::sqrt(2.0 * pi)) * (1.0 / sigma);
-    const T r2        = ((x - mu) * (x - mu)) + ((y - mu) * (y - mu) + ((z - mu) * (z - mu));
+    const T r2        = ((x - mu) * (x - mu) + (y - mu) * (y - mu) + (z - mu) * (z - mu));
 
     return prefactor * Kokkos::exp(-r2 / (2.0 * sigma * sigma));
 }
@@ -33,7 +33,7 @@ struct AnalyticSol {
         const T x  = x_vec[0];
         const T y  = x_vec[1];
         const T z  = x_vec[2];
-        const T r2 = ((x - mu) * (x - mu)) + ((y - mu) * (y - mu) + ((z - mu) * (z - mu));
+        const T r2 = ((x - mu) * (x - mu) + (y - mu) * (y - mu) + (z - mu) * (z - mu));
 
         const T prefactor = (1.0 / Kokkos::sqrt(2.0 * pi)) * (1.0 / sigma);
 

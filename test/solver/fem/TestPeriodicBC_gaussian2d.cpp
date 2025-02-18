@@ -16,7 +16,7 @@ KOKKOS_INLINE_FUNCTION T gaussian2D(ippl::Vector<T, 2> x_vec, const T& sigma = 0
     const T y  = x_vec[1];
 
     const T prefactor = (1.0 / Kokkos::sqrt(2.0 * pi)) * (1.0 / sigma);
-    const T r2        = ((x - mu) * (x - mu)) + ((y - mu) * (y - mu));
+    const T r2        = ((x - mu) * (x - mu) + (y - mu) * (y - mu));
 
     return prefactor * Kokkos::exp(-r2 / (2.0 * sigma * sigma));
 }
@@ -31,7 +31,7 @@ struct AnalyticSol {
 
         const T x  = x_vec[0];
         const T y  = x_vec[1];
-        const T r2 = ((x - mu) * (x - mu)) + ((y - mu) * (y - mu));
+        const T r2 = ((x - mu) * (x - mu) + (y - mu) * (y - mu));
 
         const T prefactor = (1.0 / Kokkos::sqrt(2.0 * pi)) * (1.0 / sigma);
 
