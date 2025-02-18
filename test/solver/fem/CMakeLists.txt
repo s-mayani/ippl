@@ -54,6 +54,20 @@ target_link_libraries(
     ${MPI_CXX_LIBRARIES}
 )
 
+add_executable(TestPeriodicBC_gaussian2d TestPeriodicBC_gaussian2d.cpp)
+target_link_libraries(
+    TestPeriodicBC_gaussian2d
+    ${IPPL_LIBS}
+    ${MPI_CXX_LIBRARIES}
+)
+
+add_executable(TestPeriodicBC_gaussian3d TestPeriodicBC_gaussian3d.cpp)
+target_link_libraries(
+    TestPeriodicBC_gaussian3d
+    ${IPPL_LIBS}
+    ${MPI_CXX_LIBRARIES}
+)
+
 add_executable(TestScaling_ZeroBC_sin TestScaling_ZeroBC_sin.cpp)
 target_link_libraries(
     TestScaling_ZeroBC_sin
