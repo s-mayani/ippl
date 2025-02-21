@@ -33,10 +33,12 @@ protected:
     double lbt_m;
     std::string solver_m;
     std::string stepMethod_m;
+    std::vector<std::string> preconditioner_params_m;
 
 public:
     AlpineManager(size_type totalP_, int nt_, Vector_t<int, Dim>& nr_, double lbt_,
-                  std::string& solver_, std::string& stepMethod_)
+                  std::string& solver_, std::string& stepMethod_,
+                  std::vector<std::string> preconditioner_params = {})
         : ippl::PicManager<T, Dim, ParticleContainer<T, Dim>, FieldContainer<T, Dim>,
                            LoadBalancer<T, Dim>>()
         , totalP_m(totalP_)
@@ -44,7 +46,8 @@ public:
         , nr_m(nr_)
         , lbt_m(lbt_)
         , solver_m(solver_)
-        , stepMethod_m(stepMethod_) {}
+        , stepMethod_m(stepMethod_)
+        , preconditioner_params_m(preconditioner_params) {}
     ~AlpineManager() {}
 
 protected:
@@ -92,6 +95,8 @@ public:
     double getTime() const { return time_m; }
 
     void setTime(double time_) { time_m = time_; }
+
+    std::vector<std::string> getPreconditionerParams() const { return preconditioner_params_m; };
 
     virtual void dump(){/* default does nothing */};
 
