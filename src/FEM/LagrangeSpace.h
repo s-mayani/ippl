@@ -216,6 +216,9 @@ namespace ippl {
         template <typename F>
         FieldLHS evaluateAx_inversediag(FieldLHS& field, F& evalFunction) const;
 
+        template <typename F>
+        FieldLHS evaluateAx_diag(FieldLHS& field, F& evalFunction) const;
+
         /**
          * @brief Assemble the load vector b of the system Ax = b
          *
