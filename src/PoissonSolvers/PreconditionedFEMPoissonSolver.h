@@ -2,8 +2,8 @@
 //   Solves the poisson equation using finite element methods and Conjugate
 //   Gradient
 
-#ifndef IPPL_FEMPOISSONSOLVER_H
-#define IPPL_FEMPOISSONSOLVER_H
+#ifndef IPPL_PRECONFEMPOISSONSOLVER_H
+#define IPPL_PRECONFEMPOISSONSOLVER_H
 
 // #include "FEM/FiniteElementSpace.h"
 #include "LaplaceHelpers.h"
@@ -36,7 +36,7 @@ namespace ippl {
      * @tparam FieldRHS field type for the right hand side
      */
     template <typename FieldLHS, typename FieldRHS = FieldLHS>
-    class FEMPoissonSolver : public Poisson<FieldLHS, FieldRHS> {
+    class PreconditionedFEMPoissonSolver : public Poisson<FieldLHS, FieldRHS> {
         constexpr static unsigned Dim = FieldLHS::dim;
         using Tlhs                    = typename FieldLHS::value_type;
 
@@ -60,7 +60,7 @@ namespace ippl {
         using LagrangeType = LagrangeSpace<Tlhs, Dim, 1, ElementType, QuadratureType, FieldLHS, FieldRHS>;
 
         // default constructor (compatibility with Alpine)
-        FEMPoissonSolver() 
+        PreconditionedFEMPoissonSolver() 
             : Base()
             , refElement_m()
             , quadrature_m(refElement_m, 0.0, 0.0)
@@ -68,7 +68,7 @@ namespace ippl {
                                 Vector<Tlhs, Dim>(0))), refElement_m, quadrature_m)
         {}
 
-        FEMPoissonSolver(lhs_type& lhs, rhs_type& rhs)
+        PreconditionedFEMPoissonSolver(lhs_type& lhs, rhs_type& rhs)
             : Base(lhs, rhs)
             , refElement_m()
             , quadrature_m(refElement_m, 0.0, 0.0)
@@ -131,6 +131,7 @@ namespace ippl {
             EvalFunctor<Tlhs, Dim, this->lagrangeSpace_m.numElementDOFs> poissonEquationEval(
                 DPhiInvT, absDetDPhi);
 
+            // define the lambdas for all the different operators
             const auto algoOperator = [poissonEquationEval, this](lhs_type field) -> lhs_type {
                 // start a timer
                 static IpplTimings::TimerRef opTimer = IpplTimings::getTimer("operator");
@@ -211,14 +212,45 @@ namespace ippl {
                 return return_field;
             };
 
-            algo_m.setPreconditioner(algoOperator, algoOperatorL, algoOperatorU, algoOperatorUL,
-                                     algoOperatorInvD);
+            const auto algoOperatorD = [poissonEquationEval, this](lhs_type field) -> lhs_type {
+                // start a timer
+                static IpplTimings::TimerRef opTimer = IpplTimings::getTimer("operator");
+                IpplTimings::startTimer(opTimer);
+
+                field.fillHalo();
+
+                auto return_field = lagrangeSpace_m.evaluateAx_diag(field, poissonEquationEval);
+
+                return_field.accumulateHalo();
+                
+                IpplTimings::stopTimer(opTimer);
+
+                return return_field;
+            };
+
+            // set preconditioner for PCG
+            std::string preconditioner_type =
+                this->params_m.template get<std::string>("preconditioner_type");
+            int level    = this->params_m.template get<int>("newton_level");
+            int degree   = this->params_m.template get<int>("chebyshev_degree");
+            int inner    = this->params_m.template get<int>("gauss_seidel_inner_iterations");
+            int outer    = this->params_m.template get<int>("gauss_seidel_outer_iterations");
+            double omega = this->params_m.template get<double>("ssor_omega");
+            int richardson_iterations =
+                this->params_m.template get<int>("richardson_iterations");
+
+            pcg_algo_m.setPreconditioner(algoOperator, algoOperatorL, algoOperatorU, algoOperatorUL,
+                                     algoOperatorInvD, algoOperatorD, 0, 0, preconditioner_type,
+                                     level, degree, richardson_iterations, inner, outer, omega);
+
+            // set the operator for PCG
             pcg_algo_m.setOperator(algoOperator);
 
             // start a timer
             static IpplTimings::TimerRef pcgTimer = IpplTimings::getTimer("pcg");
             IpplTimings::startTimer(pcgTimer);
 
+            // run PCG -> lhs contains solution
             pcg_algo_m(*(this->lhs_mp), *(this->rhs_mp), this->params_m);
 
             (this->lhs_mp)->fillHalo();
