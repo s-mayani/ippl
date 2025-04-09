@@ -219,6 +219,15 @@ namespace ippl {
         ///////////////////////////////////////////////////////////////////////
 
         /**
+         * @brief Given a field, compute the average
+         *
+         * @param u_h The numerical solution found using FEM
+         *
+         * @return avg The average of the field on the domain
+         */
+        T computeAvg(const FieldLHS& u_h) const;
+
+        /**
          * @brief Given two fields, compute the L2 norm error
          *
          * @param u_h The numerical solution found using FEM
