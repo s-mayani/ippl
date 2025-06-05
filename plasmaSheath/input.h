@@ -88,12 +88,17 @@ namespace params {
     // (e.g. typical sampled v_par is v_th_i, but some ions may get sampled with v_par = 6 v_th_i)
     constexpr double f_v_th_safety = 6.0;
     // maximum velocity expected to be encountered in the simulation
-    constexpr double v_max = std::max({
+    const double v_max = std::max({
         // ions that get sampled with some velocity get accelerated towards the wall
         f_ion_speedup * f_v_th_safety * v_th_i,
         // electrons are reflected, so their max velocity is the one they're sampled with
         (kinetic_electrons ? f_v_th_safety * v_th_e : 0.0),
     });
+
+    // only accept ions with 0 < -v_x < v_trunc_i
+    const double v_trunc_i = v_max / f_ion_speedup;
+    // only accept ions with 0 < -v_x < v_trunc_e
+    const double v_trunc_e = v_max;
 
     // postprocessing of simulation parameters
     // resolution such that dx << smallest length scale

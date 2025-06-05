@@ -33,16 +33,20 @@ public:
         // so need a local copy for device code
         double v_th_e;
         double v_trunc_e;
+        double v_th_i;
+        double v_trunc_i;
 
         enum Species {
             Electrons,
             Ions
         };
 
-        ParticleGen(double v_th_e_, double v_trunc_e_)
+        ParticleGen(double v_th_e_, double v_trunc_e_, double v_th_i_, double v_trunc_i_)
             : rand_pool64((size_type)(42 + 100 * ippl::Comm->rank()))
             , v_th_e(v_th_e_)
-            , v_trunc_e(v_trunc_e_) {}
+            , v_trunc_e(v_trunc_e_)
+            , v_th_i(v_th_i_)
+            , v_trunc_i(v_trunc_i_) {}
 
         KOKKOS_FUNCTION Vector<T, 3> fieldaligned_to_wallaligned(double vpar, double vperpx,
                                                                  double vperpy) const {
@@ -64,8 +68,8 @@ public:
                 // 1.a. sample vpar from the modified half-maxwellian
                 // note that by coincidence, the normalization constant for beta = 0 and beta = 2
                 // (i.e. vpar² prefactor) are the same, and evaluate to 2/√(2π)
-                const double stdpar  = s == Electrons ? v_th_e : params::v_th_i,
-                             v_trunc = s == Electrons ? v_trunc_e : params::v_trunc_i;
+                const double stdpar  = s == Electrons ? v_th_e : v_th_i,
+                             v_trunc = s == Electrons ? v_trunc_e : v_trunc_i;
 
                 double vpar;
                 while (true) {
@@ -78,7 +82,7 @@ public:
 
                 // 1.b. sample vperp coordinates
                 const double stdperp =
-                    s == Electrons ? v_th_e : params::v_th_i * params::nu;
+                    s == Electrons ? v_th_e : v_th_i * params::nu;
                 const double vperpx = rand_gen.normal(0.0, stdperp),
                              vperpy = rand_gen.normal(0.0, stdperp);
 
@@ -100,7 +104,7 @@ public:
         KOKKOS_FUNCTION Vector<T, 3> generate_electron() const { return sample_v3(Electrons); }
     };
 
-    int n_timeavg;
+    unsigned int n_timeavg;
 
     PlasmaSheathManager(size_type totalP_, int nt_, Vector_t<int, Dim>& nr_, double lbt_,
                         std::string& solver_, std::string& stepMethod_)
@@ -246,7 +250,7 @@ public:
         this->pcontainer_m->create(nlocal);
 
         // particle velocity sampler
-        ParticleGen pgen(params::v_th_e, params::v_trunc_e);
+        ParticleGen pgen(params::v_th_e, params::v_trunc_e, params::v_th_i, params::v_trunc_i);
 
         // particles are initially sampled at x = L (bulk plasma)
         // the wall is at x = 0
@@ -327,7 +331,7 @@ public:
         // and resample to insert them from plasma boundary
 
         // particle velocity sampler
-        ParticleGen pgen(params::v_th_e, params::v_trunc_e);
+        ParticleGen pgen(params::v_th_e, params::v_trunc_e, params::v_th_i, params::v_trunc_i);
 
         auto rmin = this->rmin_m;
         auto rmax = this->rmax_m;
