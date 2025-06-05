@@ -100,7 +100,6 @@ public:
         }
 
         KOKKOS_FUNCTION Vector<T, 3> generate_ion() const { return sample_v3(Ions); }
-
         KOKKOS_FUNCTION Vector<T, 3> generate_electron() const { return sample_v3(Electrons); }
     };
 
@@ -164,7 +163,24 @@ public:
 
         m << "Discretization:" << endl
           << "nt " << this->nt_m << " Np= " << this->totalP_m << " grid=" << this->nr_m
-          << " dt=" << this->dt_m << " kinetic electrons? " << params::kinetic_electrons << endl;
+          << " dt=" << this->dt_m << endl;
+
+        m << "Parameters:" << "\n"
+          << "\tZ = " << params::Z_i << "\n"
+          << "\tn_i0/n_e0 = " << params::n_i0 << "\n"
+          << "\tm_e/m_i = " << params::m_e << "\n"
+          << "\tT_i/T_e (tau) = " << params::tau << "\n"
+          << "\tT_i_perp/T_i_par (nu) = " << params::nu << "\n"
+          << "\tD_D = " << params::D_D << "\n"
+          << "\tD_C = " << params::D_C << "\n"
+          << "\talpha (deg) = " << params::alpha * 180.0 / pi << "\n"
+          << "\tkinetic electrons = " << params::kinetic_electrons << "\n"
+          << "\n"
+          << "\tL = " << params::L << "\n"
+          << "\tdx = " << params::dx << "\n"
+          << "\tdt = " << params::dt << "\n"
+          << "\tv_max = " << params::v_max << "\n"
+          << endl;
     }
 
     void pre_run() override {
@@ -196,6 +212,7 @@ public:
             this->lbt_m, this->fcontainer_m, this->pcontainer_m, this->fsolver_m));
 
         initializeParticles();
+        m << "done initializing particles." << endl;
 
         static IpplTimings::TimerRef DummySolveTimer = IpplTimings::getTimer("solveWarmup");
         IpplTimings::startTimer(DummySolveTimer);
@@ -204,8 +221,10 @@ public:
         this->fsolver_m->runSolver();
 
         IpplTimings::stopTimer(DummySolveTimer);
+        m << "done warmup solve." << endl;
 
         this->par2grid();
+        m << "done par2grid." << endl;
 
         static IpplTimings::TimerRef SolveTimer = IpplTimings::getTimer("solve");
         IpplTimings::startTimer(SolveTimer);
@@ -221,14 +240,18 @@ public:
         this->fsolver_m->runSolver();
 
         IpplTimings::stopTimer(SolveTimer);
+        m << "done solve." << endl;
 
         this->grid2par();
+        m << "done grid2par." << endl;
 
-        // save the rho and phi for computation for the rolling average of the fields
+        // save the rho and phi for computation for the time average of the fields
         resetPlasmaAverage();
+        m << "done resetPlasmaAverage." << endl;
 
         // dump particle ICs
         this->dump();
+        m << "done particle dump." << endl;
 
         m << "Done";
     }

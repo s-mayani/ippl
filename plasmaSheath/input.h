@@ -57,7 +57,7 @@ namespace params {
     constexpr double phi0 = -2.37;
 
     // toggles between adiabatic electrons and kinetic electrons
-    constexpr bool kinetic_electrons = false;
+    constexpr bool kinetic_electrons = true;
 
     // derived quantities from the physical parameters
     // in normalized units, v_th_i = 1.0   and v_th_e = √(T_i/T_e) √m_e/m_i = √τ √~m_e
@@ -74,11 +74,11 @@ namespace params {
 
     // -- SIMULATION PARAMETERS --
     // length of the simulation domain, in units of L_ref
-    constexpr double L = 100.0;
-    // resolution of the smallest length scale min(ρ_th_e, λ_D, ρ_th_i). should be < 1.0
-    constexpr double f_x = 0.1;
+    constexpr double L = 30.0;
+    // resolution of the smallest length scale min(ρ_th_e, λ_D, ρ_th_i).
+    constexpr double f_x = 0.5;
     // resolution of the smallest time scale 2π/Ω_ce. should be < 1.0
-    constexpr double f_t = 0.1;
+    constexpr double f_t = 0.2;
     // β_max = v_max Δx/Δt, should be < 1.0
     constexpr double CFL_max = 0.5;
 
