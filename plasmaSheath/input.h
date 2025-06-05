@@ -56,8 +56,8 @@ namespace params {
     // wall bias. note that phi(x=MPE) = 0
     constexpr double phi0 = -2.37;
 
-    // toggles between adiabatic electrons and kinetic electron
-    constexpr bool kinetic_electrons = false;
+    // toggles between adiabatic electrons and kinetic electrons
+    constexpr bool kinetic_electrons = true;
 
     // derived quantities from the physical parameters
     // in normalized units, v_th_i = 1.0   and v_th_e = √(T_i/T_e) √m_e/m_i = √τ √~m_e
@@ -74,21 +74,31 @@ namespace params {
 
     // -- SIMULATION PARAMETERS --
     // length of the simulation domain, in units of L_ref
-    constexpr double L = 100.0;
-    // resolution of the smallest length scale min(ρ_th_e, λ_D, ρ_th_i). should be < 1.0
-    constexpr double f_x = 0.1;
+    constexpr double L = 30.0;
+    // resolution of the smallest length scale min(ρ_th_e, λ_D, ρ_th_i).
+    constexpr double f_x = 0.5;
     // resolution of the smallest time scale 2π/Ω_ce. should be < 1.0
-    constexpr double f_t = 0.1;
+    constexpr double f_t = 0.2;
     // β_max = v_max Δx/Δt, should be < 1.0
     constexpr double CFL_max = 0.5;
 
-    // velocity at which to truncate the ion distribution function
-    constexpr double v_trunc_i = 6.0 * v_th_i;
-    // velocity at which to truncate the electron distribution function
-    const double v_trunc_e =
-        6.0 * v_th_e;  // can't use constexpr since v_th_e not constexpr
-                       // rough estimate of the velocity of the ions as the impact the wall
+    // rough estimate of the velocity of the ions as the impact the wall, relative to initial v_x
     constexpr double f_ion_speedup = 10.0;
+    // safety factor in units of the species' thermal velocity, for v_max calculation
+    // (e.g. typical sampled v_par is v_th_i, but some ions may get sampled with v_par = 6 v_th_i)
+    constexpr double f_v_th_safety = 6.0;
+    // maximum velocity expected to be encountered in the simulation
+    const double v_max = std::max({
+        // ions that get sampled with some velocity get accelerated towards the wall
+        f_ion_speedup * f_v_th_safety * v_th_i,
+        // electrons are reflected, so their max velocity is the one they're sampled with
+        (kinetic_electrons ? f_v_th_safety * v_th_e : 0.0),
+    });
+
+    // only accept ions with 0 < -v_x < v_trunc_i
+    const double v_trunc_i = v_max / f_ion_speedup;
+    // only accept ions with 0 < -v_x < v_trunc_e
+    const double v_trunc_e = v_max;
 
     // postprocessing of simulation parameters
     // resolution such that dx << smallest length scale
@@ -97,14 +107,15 @@ namespace params {
     const unsigned int nx = Kokkos::ceil(L / dx0);
     // the actual dx
     const double dx = L / (double)nx;
-    // maximum velocity that we expect to encounter
-    const double v_max = std::max({v_trunc_e, f_ion_speedup* v_trunc_i});
-    const double dt    = std::min({
-        std::isfinite(D_C)
-               ? (f_t * 2.0 * pi / std::max({Omega_ci, kinetic_electrons ? Omega_ce : 0.0}))
-               : infinity,      // resolution such that dt << smallest time scale
-           dx / v_max* CFL_max  // time step constraint due to the CFL condition
-       });
+    // timestep as imposed by CFL or cyclotron frequency
+    const double dt = std::min({
+        // only resolve the cyclotron frequency if B > 0, i.e. D_C < oo
+        std::isfinite(D_C) ? (f_t * 2.0 * pi / std::max({Omega_ci, kinetic_electrons ? Omega_ce
+                                                                                     : 0.0}))
+                           : infinity,
+        // time step constraint due to the CFL condition
+        dx / v_max * CFL_max
+    });
 
     // -- OUTPUT PARAMS --
     // dump once every 1000 timesteps

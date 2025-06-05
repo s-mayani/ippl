@@ -33,16 +33,20 @@ public:
         // so need a local copy for device code
         double v_th_e;
         double v_trunc_e;
+        double v_th_i;
+        double v_trunc_i;
 
         enum Species {
             Electrons,
             Ions
         };
 
-        ParticleGen(double v_th_e_, double v_trunc_e_)
+        ParticleGen(double v_th_e_, double v_trunc_e_, double v_th_i_, double v_trunc_i_)
             : rand_pool64((size_type)(42 + 100 * ippl::Comm->rank()))
             , v_th_e(v_th_e_)
-            , v_trunc_e(v_trunc_e_) {}
+            , v_trunc_e(v_trunc_e_)
+            , v_th_i(v_th_i_)
+            , v_trunc_i(v_trunc_i_) {}
 
         KOKKOS_FUNCTION Vector<T, 3> fieldaligned_to_wallaligned(double vpar, double vperpx,
                                                                  double vperpy) const {
@@ -64,8 +68,8 @@ public:
                 // 1.a. sample vpar from the modified half-maxwellian
                 // note that by coincidence, the normalization constant for beta = 0 and beta = 2
                 // (i.e. vpar² prefactor) are the same, and evaluate to 2/√(2π)
-                const double stdpar  = s == Electrons ? v_th_e : params::v_th_i,
-                             v_trunc = s == Electrons ? v_trunc_e : params::v_trunc_i;
+                const double stdpar  = s == Electrons ? v_th_e : v_th_i,
+                             v_trunc = s == Electrons ? v_trunc_e : v_trunc_i;
 
                 double vpar;
                 while (true) {
@@ -78,7 +82,7 @@ public:
 
                 // 1.b. sample vperp coordinates
                 const double stdperp =
-                    s == Electrons ? v_th_e : params::v_th_i * params::nu;
+                    s == Electrons ? v_th_e : v_th_i * params::nu;
                 const double vperpx = rand_gen.normal(0.0, stdperp),
                              vperpy = rand_gen.normal(0.0, stdperp);
 
@@ -96,11 +100,10 @@ public:
         }
 
         KOKKOS_FUNCTION Vector<T, 3> generate_ion() const { return sample_v3(Ions); }
-
         KOKKOS_FUNCTION Vector<T, 3> generate_electron() const { return sample_v3(Electrons); }
     };
 
-    int n_timeavg;
+    unsigned int n_timeavg;
 
     PlasmaSheathManager(size_type totalP_, int nt_, Vector_t<int, Dim>& nr_, double lbt_,
                         std::string& solver_, std::string& stepMethod_, std::string& directory_)
@@ -160,7 +163,24 @@ public:
 
         m << "Discretization:" << endl
           << "nt " << this->nt_m << " Np= " << this->totalP_m << " grid=" << this->nr_m
-          << " dt=" << this->dt_m << " kinetic electrons? " << params::kinetic_electrons << endl;
+          << " dt=" << this->dt_m << endl;
+
+        m << "Parameters:" << "\n"
+          << "\tZ = " << params::Z_i << "\n"
+          << "\tn_i0/n_e0 = " << params::n_i0 << "\n"
+          << "\tm_e/m_i = " << params::m_e << "\n"
+          << "\tT_i/T_e (tau) = " << params::tau << "\n"
+          << "\tT_i_perp/T_i_par (nu) = " << params::nu << "\n"
+          << "\tD_D = " << params::D_D << "\n"
+          << "\tD_C = " << params::D_C << "\n"
+          << "\talpha (deg) = " << params::alpha * 180.0 / pi << "\n"
+          << "\tkinetic electrons = " << params::kinetic_electrons << "\n"
+          << "\n"
+          << "\tL = " << params::L << "\n"
+          << "\tdx = " << params::dx << "\n"
+          << "\tdt = " << params::dt << "\n"
+          << "\tv_max = " << params::v_max << "\n"
+          << endl;
     }
 
     void pre_run() override {
@@ -192,6 +212,7 @@ public:
             this->lbt_m, this->fcontainer_m, this->pcontainer_m, this->fsolver_m));
 
         initializeParticles();
+        m << "done initializing particles." << endl;
 
         static IpplTimings::TimerRef DummySolveTimer = IpplTimings::getTimer("solveWarmup");
         IpplTimings::startTimer(DummySolveTimer);
@@ -200,8 +221,10 @@ public:
         this->fsolver_m->runSolver();
 
         IpplTimings::stopTimer(DummySolveTimer);
+        m << "done warmup solve." << endl;
 
         this->par2grid();
+        m << "done par2grid." << endl;
 
         static IpplTimings::TimerRef SolveTimer = IpplTimings::getTimer("solve");
         IpplTimings::startTimer(SolveTimer);
@@ -217,14 +240,18 @@ public:
         this->fsolver_m->runSolver();
 
         IpplTimings::stopTimer(SolveTimer);
+        m << "done solve." << endl;
 
         this->grid2par();
+        m << "done grid2par." << endl;
 
-        // save the rho and phi for computation for the rolling average of the fields
+        // save the rho and phi for computation for the time average of the fields
         resetPlasmaAverage();
+        m << "done resetPlasmaAverage." << endl;
 
         // dump particle ICs
         this->dump();
+        m << "done particle dump." << endl;
 
         m << "Done";
     }
@@ -246,7 +273,7 @@ public:
         this->pcontainer_m->create(nlocal);
 
         // particle velocity sampler
-        ParticleGen pgen(params::v_th_e, params::v_trunc_e);
+        ParticleGen pgen(params::v_th_e, params::v_trunc_e, params::v_th_i, params::v_trunc_i);
 
         // particles are initially sampled at x = L (bulk plasma)
         // the wall is at x = 0
@@ -327,7 +354,7 @@ public:
         // and resample to insert them from plasma boundary
 
         // particle velocity sampler
-        ParticleGen pgen(params::v_th_e, params::v_trunc_e);
+        ParticleGen pgen(params::v_th_e, params::v_trunc_e, params::v_th_i, params::v_trunc_i);
 
         auto rmin = this->rmin_m;
         auto rmax = this->rmax_m;
