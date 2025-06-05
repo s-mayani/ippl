@@ -1,17 +1,18 @@
 // Plasma Sheath simulation
 //   Usage:
 //     srun ./PlasmaSheath
-//                  <Np> <Nt> <lbthres> <t_method> --overallocate <ovfactor> --info 10
+//                  <Np> <Nt> <lbthres> <data_dir> --overallocate <ovfactor> --info 10
 //     Np       = Total no. of macro-particles in the simulation
 //     Nt       = Number of time steps
 //     lbthres  = Load balancing threshold i.e., lbthres*100 is the maximum load imbalance
 //                percentage which can be tolerated and beyond which
 //                particle load balancing occurs. A value of 0.01 is good for many typical
 //                simulations.
+//     data_dir = directory where dump files are written (diagnostics)
 //     ovfactor = Over-allocation factor for the buffers used in the communication. Typical
 //                values are 1.0, 2.0. Value 1.0 means no over-allocation.
 //     Example:
-//     srun ./PlasmaSheath 10000 10 0.01 --overallocate 2.0 --info 10
+//     srun ./PlasmaSheath 10000 10 0.01 data --overallocate 2.0 --info 10
 
 constexpr unsigned Dim = 1;
 using T                = double;
@@ -59,6 +60,7 @@ int main(int argc, char* argv[]) {
         double lbt              = std::atof(argv[arg++]);
         std::string solver      = "CG";
         std::string step_method = "Boris";
+        std::string directory   = argv[arg++];
 
         msg << "nr=" << nr << ", Np=" << totalP << ", nt=" << nt << ", solver=" << solver << endl;
 
@@ -71,7 +73,7 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        PlasmaSheathManager<T, Dim> manager(totalP, nt, nr, lbt, solver, step_method,
+        PlasmaSheathManager<T, Dim> manager(totalP, nt, nr, lbt, solver, step_method, directory,
                                             preconditioner_params);
 
         // Perform pre-run operations, including creating mesh, particles,...

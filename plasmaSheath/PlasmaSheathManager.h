@@ -103,16 +103,16 @@ public:
     int n_timeavg;
 
     PlasmaSheathManager(size_type totalP_, int nt_, Vector_t<int, Dim>& nr_, double lbt_,
-                        std::string& solver_, std::string& stepMethod_)
+                        std::string& solver_, std::string& stepMethod_, std::string& directory_)
         : n_timeavg(1)
-        , AlpineManager<T, Dim>(totalP_, nt_, nr_, lbt_, solver_, stepMethod_) {
+        , AlpineManager<T, Dim>(totalP_, nt_, nr_, lbt_, solver_, stepMethod_, directory_) {
         setup();
     }
 
     PlasmaSheathManager(size_type totalP_, int nt_, Vector_t<int, Dim>& nr_, double lbt_,
-                        std::string& solver_, std::string& stepMethod_,
+                        std::string& solver_, std::string& stepMethod_, std::string& directory_,
                         std::vector<std::string> preconditioner_params_)
-        : AlpineManager<T, Dim>(totalP_, nt_, nr_, lbt_, solver_, stepMethod_,
+        : AlpineManager<T, Dim>(totalP_, nt_, nr_, lbt_, solver_, stepMethod_, directory_,
                                 preconditioner_params_) {
         setup();
     }
@@ -178,12 +178,12 @@ public:
         if (this->getSolver() == "PCG") {
             this->setFieldSolver(std::make_shared<FieldSolver_t>(
                 this->solver_m, &this->fcontainer_m->getRho(), &this->fcontainer_m->getE(),
-                &this->fcontainer_m->getPhi(), this->fcontainer_m->getPhiWall(),
+                &this->fcontainer_m->getPhi(), this->fcontainer_m->getPhiWall(), this->directory_m, 
                 this->preconditioner_params_m));
         } else {
             this->setFieldSolver(std::make_shared<FieldSolver_t>(
                 this->solver_m, &this->fcontainer_m->getRho(), &this->fcontainer_m->getE(),
-                &this->fcontainer_m->getPhi(), this->fcontainer_m->getPhiWall()));
+                &this->fcontainer_m->getPhi(), this->fcontainer_m->getPhiWall(), this->directory_m));
         }
 
         this->fsolver_m->initSolver();
@@ -471,7 +471,7 @@ public:
         Kokkos::deep_copy(m_host, this->pcontainer_m->m.getView());
 
         std::stringstream pname;
-        pname << "data_" << params::kinetic_electrons << "/ParticleIC_";
+        pname << this->directory_m << "/ParticleIC_";
         pname << ippl::Comm->rank();
         pname << ".csv";
         Inform pcsvout(NULL, pname.str().c_str(), Inform::APPEND, ippl::Comm->rank());
@@ -534,7 +534,7 @@ public:
         const double orig_x = this->origin_m[0];
 
         std::stringstream fname;
-        fname << "data_" << params::kinetic_electrons << "/Fields_";
+        fname << this->directory_m << "/Fields_";
         fname << this->it_m;
         fname << ".csv";
         Inform csvout(NULL, fname.str().c_str(), Inform::APPEND);

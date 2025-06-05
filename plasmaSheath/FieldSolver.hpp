@@ -14,16 +14,18 @@ private:
     VField_t<T, Dim>* E_m;
     Field<T, Dim>* phi_m;
     T phiWall_m;  // Dirichlet BC at wall
+    std::string directory_m;
     std::vector<std::string> preconditioner_params_m;
 
 public:
     FieldSolver(std::string solver, Field_t<Dim>* rho, VField_t<T, Dim>* E, Field<T, Dim>* phi,
-                T phiWall, std::vector<std::string> preconditioner_params = {})
+                T phiWall, std::string& directory, std::vector<std::string> preconditioner_params = {})
         : ippl::FieldSolverBase<T, Dim>(solver)
         , rho_m(rho)
         , E_m(E)
         , phi_m(phi)
         , phiWall_m(phiWall)
+        , directory_m(directory)
         , preconditioner_params_m(preconditioner_params) {
         setPotentialBCs();
     }
@@ -77,11 +79,9 @@ public:
             if (ippl::Comm->rank() == 0) {
                 std::stringstream fname;
                 if (this->getStype() == "CG") {
-                    fname << "data/CG_";
+                    fname << this->directory_m << "/CG_";
                 } else {
-                    fname << "data_";
-                    fname << preconditioner_params_m[0];
-                    fname << "/";
+                    fname << this->directory_m << "/PCG";
                     fname << preconditioner_params_m[0];
                     fname << "_";
                 }

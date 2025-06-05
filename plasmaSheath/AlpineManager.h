@@ -27,7 +27,7 @@ public:
     using Base                = ippl::ParticleBase<ippl::ParticleSpatialLayout<T, Dim>>;
 
     AlpineManager(size_type totalP_, int nt_, Vector_t<int, Dim>& nr_, double lbt_,
-                  std::string& solver_, std::string& stepMethod_,
+                  std::string& solver_, std::string& stepMethod_, std::string& directory_,
                   std::vector<std::string> preconditioner_params = {})
         : ippl::PicManager<T, Dim, ParticleContainer<T, Dim>, FieldContainer<T, Dim>,
                            LoadBalancer<T, Dim>>()
@@ -37,6 +37,7 @@ public:
         , lbt_m(lbt_)
         , solver_m(solver_)
         , stepMethod_m(stepMethod_)
+        , directory_m(directory_)
         , preconditioner_params_m(preconditioner_params) {}
     ~AlpineManager() {}
 
@@ -192,6 +193,7 @@ protected:
     double lbt_m;
     std::string solver_m;
     std::string stepMethod_m;
+    std::string directory_m;
     std::vector<std::string> preconditioner_params_m;
 
     double time_m;
