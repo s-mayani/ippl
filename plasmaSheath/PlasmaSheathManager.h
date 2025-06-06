@@ -156,11 +156,10 @@ public:
         if (params::kinetic_electrons) {
             // total charge is 0 since quasineutral;
             // if total no. of particles is odd, will have 1 electron more
-            this->Q_m = 0.0 - params::Z_e * (this->totalP_m % 2);
+            this->Q_m = 0.0 + params::Z_e * (this->totalP_m % 2);
         } else {
             this->Q_m = this->totalP_m * params::Z_i;
         }
-
         m << "Discretization:" << endl
           << "nt " << this->nt_m << " Np= " << this->totalP_m << " grid=" << this->nr_m
           << " dt=" << this->dt_m << endl;
@@ -211,8 +210,6 @@ public:
         this->setLoadBalancer(std::make_shared<LoadBalancer_t>(
             this->lbt_m, this->fcontainer_m, this->pcontainer_m, this->fsolver_m));
 
-        initializeParticles();
-
         static IpplTimings::TimerRef DummySolveTimer = IpplTimings::getTimer("solveWarmup");
         IpplTimings::startTimer(DummySolveTimer);
 
@@ -221,19 +218,27 @@ public:
 
         IpplTimings::stopTimer(DummySolveTimer);
 
+        initializeParticles();
+        this->dump();
+
         this->par2grid();
 
         static IpplTimings::TimerRef SolveTimer = IpplTimings::getTimer("solve");
         IpplTimings::startTimer(SolveTimer);
 
         if (!params::kinetic_electrons) {
-            // is the electrons are adiabatic, then we have a background
+            // if the electrons are adiabatic, then we have a background
             // charge density field which is given by exp(phi) where
             // phi is the previous iteration's solution (electric potential)
+            // set phi to 0 first since it has a dummy value from the warmup solve
+            this->fcontainer_m->getPhi() = 0.0;
+
             this->fcontainer_m->getRho() =
                 this->fcontainer_m->getRho()
-                + exp(this->fcontainer_m->getPhi()) * params::Z_e * params::n_e0;
+                + exp(this->fcontainer_m->getPhi()) * params::Z_e * params::n_e0 *
+                ((double) this->totalP_m / (double)this->nr_m[0]);
         }
+
         this->fsolver_m->runSolver();
 
         IpplTimings::stopTimer(SolveTimer);
@@ -265,8 +270,10 @@ public:
         // create particles on each rank
         this->pcontainer_m->create(nlocal);
 
-        // local copy of rmax
+        // local copies
+        auto rmin = this->rmin_m;
         auto rmax = this->rmax_m;
+        auto hr   = this->hr_m;
 
         // particle velocity sampler
         ParticleGen pgen(params::v_th_e, params::v_trunc_e, params::v_th_i, params::v_trunc_i);
@@ -275,17 +282,17 @@ public:
         // as steady-state seeked anyways so it doesn't matter
         int seed = 42;
         Kokkos::Random_XorShift64_Pool<> rand_pool64((size_type)(seed + 100 * ippl::Comm->rank()));
+        
+        // charge and mass are species dependent
+        view_typeQ Qview = this->pcontainer_m->q.getView();
+        view_typeQ Mview = this->pcontainer_m->m.getView();
+
+        // position is sampled uniformly in domain (we seek steady state)
+        // velocity is sampled from the species' respective distribution
+        view_typeR Rview = this->pcontainer_m->R.getView();
+        view_typeP Pview = this->pcontainer_m->P.getView();
 
         if (params::kinetic_electrons) {
-            // charge and mass are species dependent
-            view_typeQ Qview = this->pcontainer_m->q.getView();
-            view_typeQ Mview = this->pcontainer_m->m.getView();
-
-            // position is sampled uniformly in domain (we seek steady state)
-            // velocity is sampled from the species' respective distribution
-            view_typeR Rview = this->pcontainer_m->R.getView();
-            view_typeP Pview = this->pcontainer_m->P.getView();
-
             // TODO check what limits of velocity to put on vy and vz
             // half the particles are ions, half are electrons
             // we do this approximate division by checking whether even or odd ID
@@ -309,14 +316,16 @@ public:
         } else {
             // single species: ions
             // adiabatic electrons are taken care of in the fieldsolver
-            this->pcontainer_m->q = params::Z_i;
-            this->pcontainer_m->m = params::m_i;
-
-            // velocity is sampled from the ion distribution
-            view_typeP Pview = this->pcontainer_m->P.getView();
             Kokkos::parallel_for(
                 "Set attributes", this->pcontainer_m->getLocalNum(),
-                KOKKOS_LAMBDA(const int i) { Pview(i) = pgen.generate_ion(); });
+                KOKKOS_LAMBDA(const int i) { 
+                    Qview(i) = params::Z_i;
+                    Mview(i) = params::m_i;
+
+                    auto rand_gen = rand_pool64.get_state();
+                    Rview(i) = rmax * rand_gen.drand(0.0, 1.0);
+                    Pview(i) = pgen.generate_ion();
+                });
         }
         Kokkos::fence();
         ippl::Comm->barrier();
@@ -364,9 +373,6 @@ public:
         view_typeR Rview = this->pcontainer_m->R.getView();
         view_typeP Pview = this->pcontainer_m->P.getView();
 
-        int seed = 42;
-        Kokkos::Random_XorShift64_Pool<> rand_pool64((size_type)(seed + 100 * ippl::Comm->rank()));
-
         Kokkos::parallel_for(
             "Remove particle", this->pcontainer_m->getLocalNum(), KOKKOS_LAMBDA(const int i) {
                 bool outside = false;
@@ -376,8 +382,7 @@ public:
                     }
                 }
                 if (outside) {
-                    auto rand_gen = rand_pool64.get_state();
-                    Rview(i) = rmax * rand_gen.drand(0.0, 1.0);
+                    Rview(i) = rmax;
 
                     bool odd = (i % 2);
                     if (params::kinetic_electrons) {
@@ -421,8 +426,10 @@ public:
             // phi is the previous iteration's solution (electric potential)
             this->fcontainer_m->getRho() =
                 this->fcontainer_m->getRho()
-                + exp(this->fcontainer_m->getPhi()) * params::Z_e * params::n_e0;
+                + exp(this->fcontainer_m->getPhi()) * params::Z_e * params::n_e0 *
+                ((double) this->totalP_m / (double)this->nr_m[0]);
         }
+
         this->fsolver_m->runSolver();
         IpplTimings::stopTimer(SolveTimer);
 
