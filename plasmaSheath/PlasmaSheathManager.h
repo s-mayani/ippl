@@ -265,6 +265,9 @@ public:
         // create particles on each rank
         this->pcontainer_m->create(nlocal);
 
+        // local copy of rmax
+        auto rmax = this->rmax_m;
+
         // particle velocity sampler
         ParticleGen pgen(params::v_th_e, params::v_trunc_e, params::v_th_i, params::v_trunc_i);
 
@@ -272,15 +275,15 @@ public:
         // as steady-state seeked anyways so it doesn't matter
         int seed = 42;
         Kokkos::Random_XorShift64_Pool<> rand_pool64((size_type)(seed + 100 * ippl::Comm->rank()));
-        auto rand_gen = rand_pool64.get_state();
-        this->pcontainer_m->R = this->rmax_m * rand_gen.drand(0.0, 1.0);
 
         if (params::kinetic_electrons) {
             // charge and mass are species dependent
             view_typeQ Qview = this->pcontainer_m->q.getView();
             view_typeQ Mview = this->pcontainer_m->m.getView();
 
+            // position is sampled uniformly in domain (we seek steady state)
             // velocity is sampled from the species' respective distribution
+            view_typeR Rview = this->pcontainer_m->R.getView();
             view_typeP Pview = this->pcontainer_m->P.getView();
 
             // TODO check what limits of velocity to put on vy and vz
@@ -292,6 +295,9 @@ public:
 
                     Qview(i) = ((!odd) * params::Z_e) + (odd * params::Z_i);
                     Mview(i) = ((!odd) * params::m_e) + (odd * params::m_i);
+
+                    auto rand_gen = rand_pool64.get_state();
+                    Rview(i) = rmax * rand_gen.drand(0.0, 1.0);
 
                     // accept only those which have velocity_x > 0 (moving towards wall)
                     if (odd) {
