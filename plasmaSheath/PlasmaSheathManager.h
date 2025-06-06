@@ -212,7 +212,6 @@ public:
             this->lbt_m, this->fcontainer_m, this->pcontainer_m, this->fsolver_m));
 
         initializeParticles();
-        m << "done initializing particles." << endl;
 
         static IpplTimings::TimerRef DummySolveTimer = IpplTimings::getTimer("solveWarmup");
         IpplTimings::startTimer(DummySolveTimer);
@@ -221,10 +220,8 @@ public:
         this->fsolver_m->runSolver();
 
         IpplTimings::stopTimer(DummySolveTimer);
-        m << "done warmup solve." << endl;
 
         this->par2grid();
-        m << "done par2grid." << endl;
 
         static IpplTimings::TimerRef SolveTimer = IpplTimings::getTimer("solve");
         IpplTimings::startTimer(SolveTimer);
@@ -240,18 +237,14 @@ public:
         this->fsolver_m->runSolver();
 
         IpplTimings::stopTimer(SolveTimer);
-        m << "done solve." << endl;
 
         this->grid2par();
-        m << "done grid2par." << endl;
 
         // save the rho and phi for computation for the time average of the fields
         resetPlasmaAverage();
-        m << "done resetPlasmaAverage." << endl;
 
         // dump particle ICs
         this->dump();
-        m << "done particle dump." << endl;
 
         m << "Done";
     }
@@ -275,9 +268,12 @@ public:
         // particle velocity sampler
         ParticleGen pgen(params::v_th_e, params::v_trunc_e, params::v_th_i, params::v_trunc_i);
 
-        // particles are initially sampled at x = L (bulk plasma)
-        // the wall is at x = 0
-        this->pcontainer_m->R = this->rmax_m;
+        // sample particle positions uniformly in domain 
+        // as steady-state seeked anyways so it doesn't matter
+        int seed = 42;
+        Kokkos::Random_XorShift64_Pool<> rand_pool64((size_type)(seed + 100 * ippl::Comm->rank()));
+        auto rand_gen = rand_pool64.get_state();
+        this->pcontainer_m->R = this->rmax_m * rand_gen.drand(0.0, 1.0);
 
         if (params::kinetic_electrons) {
             // charge and mass are species dependent
@@ -374,7 +370,9 @@ public:
                     }
                 }
                 if (outside) {
-                    Rview(i) = rmax;
+                    auto rand_gen = rand_pool64.get_state();
+                    Rview(i) = rmax * rand_gen.drand(0.0, 1.0);
+
                     bool odd = (i % 2);
                     if (params::kinetic_electrons) {
                         if (odd) {
