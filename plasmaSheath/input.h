@@ -60,15 +60,15 @@ namespace params {
     constexpr bool kinetic_electrons = true;
 
     // derived quantities from the physical parameters
-    // in normalized units, v_th_i = 1.0   and v_th_e = √(T_i/T_e) √m_e/m_i = √τ √~m_e
-    //                      ρ_th_i = D_C   and ρ_th_e = D_C √~m_e / √τ
+    // in normalized units, v_th_i = 1.0   and v_th_e = √(T_i/tau) √(m_i/m_e) 1/√m_i = 1 / √(τ ~m_e) v_th_i
+    //                      ρ_th_i = D_C   and ρ_th_e = Z √~m_e / √τ D_C
     //                      Ω_ci = 1/D_C   and Ω_ce = 1/(Z ~m_e D_C)
     // ion thermal velocity, by definition of normalization
     constexpr double v_th_i = 1.0;
     static_assert(v_th_i == 1.0);
-    const double v_th_e = Kokkos::sqrt(tau / m_e);  // can't use constexpr since sqrt not constexpr
+    const double v_th_e = 1.0 / Kokkos::sqrt(tau * m_e);  // can't use constexpr since sqrt not constexpr
     constexpr double rho_th_i = D_C;
-    const double rho_th_e     = D_C * v_th_e;  // can't use constexpr since v_th_e not constexpr
+    const double rho_th_e     = D_C * Z * Kokkos::sqrt(m_e / tau);  // can't use constexpr since sqrt not constexpr
     constexpr double Omega_ci = 1.0 / D_C;
     constexpr double Omega_ce = 1.0 / (Z_i * m_e * D_C);
 
