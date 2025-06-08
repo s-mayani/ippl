@@ -68,7 +68,7 @@ namespace params {
     static_assert(v_th_i == 1.0);
     const double v_th_e = 1.0 / Kokkos::sqrt(tau * m_e);  // can't use constexpr since sqrt not constexpr
     constexpr double rho_th_i = D_C;
-    const double rho_th_e     = D_C * Z * Kokkos::sqrt(m_e / tau);  // can't use constexpr since sqrt not constexpr
+    const double rho_th_e     = D_C * Z_i * Kokkos::sqrt(m_e / tau);  // can't use constexpr since sqrt not constexpr
     constexpr double Omega_ci = 1.0 / D_C;
     constexpr double Omega_ce = 1.0 / (Z_i * m_e * D_C);
 

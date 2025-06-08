@@ -2,6 +2,7 @@
 #define IPPL_PLASMA_SHEATH_MANAGER_H
 
 #include <memory>
+#include <Kokkos_MathematicalFunctions.hpp>
 
 #include "AlpineManager.h"
 #include "FieldContainer.hpp"
@@ -13,6 +14,7 @@
 #include "Random/NormalDistribution.h"
 #include "Random/Randn.h"
 #include "input.h"
+#define SQR(x) (x * x)
 
 using view_typeR = typename ippl::detail::ViewType<ippl::Vector<double, Dim>, 1>::view_type;
 using view_typeP = typename ippl::detail::ViewType<ippl::Vector<double, 3>, 1>::view_type;
@@ -41,12 +43,51 @@ public:
             Ions
         };
 
+        struct Gammadev {
+            double alph, oalph, bet;
+            double a1, a2;
+            Gammadev(double aalph, double bbet) :
+                  alph(aalph)
+                , oalph(aalph)
+                , bet(bbet) {
+                if (alph <= 0.)
+                    throw("bad alph in Gammadev");
+                if (alph < 1.)
+                    alph += 1.;
+                a1 = alph - 1. / 3.;
+                a2 = 1. / Kokkos::sqrt(9. * a1);
+            }
+            double dev(RNG::generator_type& rand_gen) const {
+                double u, v, x;
+                do {
+                    do {
+                        x = rand_gen.normal(0.0, 1.0);
+                        v = 1. + a2 * x;
+                    } while (v <= 0.);
+                    v = v * v * v;
+                    u = rand_gen.drand(0.0, 1.0);
+                } while (u > 1. - 0.331 * SQR(SQR(x))
+                         && Kokkos::log(u) > 0.5 * SQR(x) + a1 * (1. - v + Kokkos::log(v)));
+                if (alph == oalph)
+                    return a1 * v / bet;
+                else {
+                    do
+                        u = rand_gen.drand(0.0, 1.0);
+                    while (u == 0.);
+                    return Kokkos::pow(u, 1. / oalph) * a1 * v / bet;
+                }
+            }
+        };
+
+        const Gammadev gam;  // Gamma dist samples generator, used for the ion's vpar
+
         ParticleGen(double v_th_e_, double v_trunc_e_, double v_th_i_, double v_trunc_i_)
             : rand_pool64((size_type)(42 + 100 * ippl::Comm->rank()))
             , v_th_e(v_th_e_)
             , v_trunc_e(v_trunc_e_)
             , v_th_i(v_th_i_)
-            , v_trunc_i(v_trunc_i_) {}
+            , v_trunc_i(v_trunc_i_)
+            , gam(1.5, 0.5) {}
 
         KOKKOS_FUNCTION Vector<T, 3> fieldaligned_to_wallaligned(double vpar, double vperpx,
                                                                  double vperpy) const {
@@ -62,22 +103,20 @@ public:
             Vector<T, 3> v3;
 
             while (true) {
-                // TODO: use samples from the Gamma distribution generated using the normal
                 // distribution samples
                 // 1. sample in field-aligned coordinates
-                // 1.a. sample vpar from the modified half-maxwellian
-                // note that by coincidence, the normalization constant for beta = 0 and beta = 2
-                // (i.e. vpar² prefactor) are the same, and evaluate to 2/√(2π)
-                const double stdpar  = s == Electrons ? v_th_e : v_th_i,
-                             v_trunc = s == Electrons ? v_trunc_e : v_trunc_i;
-
+                // 1.a. sample vpar from the modified half-maxwellian for the ions,
+                //      and from a maxwellian for the electrons
                 double vpar;
-                while (true) {
-                    vpar           = rand_gen.normal(0.0, stdpar);
-                    const double R = double(vpar > 0.0) * double(vpar < v_trunc) * 2.0
-                                     * ((s == Electrons) ? 1.0 : vpar * vpar / (v_trunc * v_trunc));
-                    if (rand_gen.drand(0.0, 1.0) < R)
-                        break;
+                if (s == Electrons) {
+                    do {
+                        vpar = rand_gen.normal(0.0, v_th_e);
+                    } while (vpar < 0.0);
+                }
+                else {
+                    // Gamma distfn: f(x) = 1/(Γ(α) θ^α) x^(α-1) exp(-x/θ),
+                    // so the transformation is x = vpar², θ = 2, α = (β+1)/2
+                    vpar = Kokkos::sqrt(gam.dev(rand_gen));
                 }
 
                 // 1.b. sample vperp coordinates
@@ -91,6 +130,7 @@ public:
 
                 // 3. only keep velocities for which v_x < 0 and v_x > -v_trunc (for the CFL
                 // condition) !!
+                const double v_trunc = s == Electrons ? v_trunc_e : v_trunc_i;
                 if (v3[0] < 0.0 && v3[0] > -v_trunc)
                     break;
             }
@@ -165,6 +205,7 @@ public:
           << " dt=" << this->dt_m << endl;
 
         m << "Parameters:" << "\n"
+          << "\n -- physics"
           << "\tZ = " << params::Z_i << "\n"
           << "\tn_i0/n_e0 = " << params::n_i0 << "\n"
           << "\tm_e/m_i = " << params::m_e << "\n"
@@ -174,11 +215,15 @@ public:
           << "\tD_C = " << params::D_C << "\n"
           << "\talpha (deg) = " << params::alpha * 180.0 / pi << "\n"
           << "\tkinetic electrons = " << params::kinetic_electrons << "\n"
-          << "\n"
+          << "\n -- grid and CFL"
           << "\tL = " << params::L << "\n"
           << "\tdx = " << params::dx << "\n"
           << "\tdt = " << params::dt << "\n"
           << "\tv_max = " << params::v_max << "\n"
+          << "\tv_th_e = " << params::v_th_e << "\n"
+          << "\t -- sampling" << "\n"
+          << "\tv_trunc_e = " << params::v_trunc_e << "\n"
+          << "\tv_trunc_i = " << params::v_trunc_i << "\n"
           << endl;
     }
 
@@ -218,7 +263,9 @@ public:
 
         IpplTimings::stopTimer(DummySolveTimer);
 
+        m << "initializing particles... " << endl;
         initializeParticles();
+        m << " done" << endl;
         this->dump();
 
         this->par2grid();
@@ -247,9 +294,6 @@ public:
 
         // save the rho and phi for computation for the time average of the fields
         resetPlasmaAverage();
-
-        // dump particle ICs
-        this->dump();
 
         m << "Done";
     }
@@ -282,7 +326,7 @@ public:
         // as steady-state seeked anyways so it doesn't matter
         int seed = 42;
         Kokkos::Random_XorShift64_Pool<> rand_pool64((size_type)(seed + 100 * ippl::Comm->rank()));
-        
+
         // charge and mass are species dependent
         view_typeQ Qview = this->pcontainer_m->q.getView();
         view_typeQ Mview = this->pcontainer_m->m.getView();
@@ -516,7 +560,7 @@ public:
         pcsvout.precision(10);
         pcsvout.setf(std::ios::scientific, std::ios::floatfield);
 
-        pcsvout << "q, m, R_x, V_x, V_y, V_z" << endl;
+        pcsvout << "q m R_x V_x V_y V_z" << endl;
 
         for (size_type i = 0; i < this->pcontainer_m->getLocalNum(); i++) {
             pcsvout << q_host(i) << " ";
