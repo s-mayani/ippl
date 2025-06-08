@@ -57,7 +57,7 @@ public:
                 a1 = alph - 1. / 3.;
                 a2 = 1. / Kokkos::sqrt(9. * a1);
             }
-            double dev(RNG::generator_type& rand_gen) const {
+            KOKKOS_FUNCTION double dev(RNG::generator_type& rand_gen) const {
                 double u, v, x;
                 do {
                     do {
