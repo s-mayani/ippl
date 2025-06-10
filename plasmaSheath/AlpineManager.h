@@ -75,7 +75,7 @@ public:
 
     void pre_step() override {
         Inform m("Pre-step");
-        m << "Done" << endl;
+        // m << "Done" << endl;
     }
 
     void post_step() override {
@@ -84,7 +84,7 @@ public:
         this->it_m++;
 
         Inform m("Post-step:");
-        m << "Finished time step: " << this->it_m << " time: " << this->time_m << endl;
+        // m << "Finished time step: " << this->it_m << " time: " << this->time_m << endl;
     }
 
     void grid2par() override { gatherCIC(); }
@@ -163,7 +163,7 @@ public:
         // remove division by Q since quasi-neutral
         double absError = std::fabs(Q - rhoSum);
 
-        m << absError << endl;
+        // m << absError << endl;
 
         size_type TotalParticles = 0;
         size_type localParticles = this->pcontainer_m->getLocalNum();
