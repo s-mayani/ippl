@@ -1,7 +1,9 @@
+// vim: ts=4 sw=4 et
 #ifndef IPPL_PLASMA_SHEATH_MANAGER_H
 #define IPPL_PLASMA_SHEATH_MANAGER_H
 
 #include <memory>
+#include <Kokkos_MathematicalFunctions.hpp>
 
 #include "AlpineManager.h"
 #include "FieldContainer.hpp"
@@ -12,7 +14,8 @@
 #include "Random/Distribution.h"
 #include "Random/NormalDistribution.h"
 #include "Random/Randn.h"
-#include "input.h"
+#include "PlasmaParams.hpp"
+#define SQR(x) (x * x)
 
 using view_typeR = typename ippl::detail::ViewType<ippl::Vector<double, Dim>, 1>::view_type;
 using view_typeP = typename ippl::detail::ViewType<ippl::Vector<double, 3>, 1>::view_type;
@@ -35,25 +38,68 @@ public:
         double v_trunc_e;
         double v_th_i;
         double v_trunc_i;
+        double alpha;
+        double nu;
 
         enum Species {
             Electrons,
             Ions
         };
 
-        ParticleGen(double v_th_e_, double v_trunc_e_, double v_th_i_, double v_trunc_i_)
+        struct Gammadev {
+            double alph, oalph, bet;
+            double a1, a2;
+            Gammadev(double aalph, double bbet) :
+                  alph(aalph)
+                , oalph(aalph)
+                , bet(bbet) {
+                if (alph <= 0.)
+                    throw("bad alph in Gammadev");
+                if (alph < 1.)
+                    alph += 1.;
+                a1 = alph - 1. / 3.;
+                a2 = 1. / Kokkos::sqrt(9. * a1);
+            }
+            KOKKOS_FUNCTION double dev(RNG::generator_type& rand_gen) const {
+                double u, v, x;
+                do {
+                    do {
+                        x = rand_gen.normal(0.0, 1.0);
+                        v = 1. + a2 * x;
+                    } while (v <= 0.);
+                    v = v * v * v;
+                    u = rand_gen.drand(0.0, 1.0);
+                } while (u > 1. - 0.331 * SQR(SQR(x))
+                         && Kokkos::log(u) > 0.5 * SQR(x) + a1 * (1. - v + Kokkos::log(v)));
+                if (alph == oalph)
+                    return a1 * v / bet;
+                else {
+                    do
+                        u = rand_gen.drand(0.0, 1.0);
+                    while (u == 0.);
+                    return Kokkos::pow(u, 1. / oalph) * a1 * v / bet;
+                }
+            }
+        };
+
+        const Gammadev gam;  // Gamma dist samples generator, used for the ion's vpar
+
+        ParticleGen(double v_th_e_, double v_trunc_e_, double v_th_i_, double v_trunc_i_, double alpha_, double nu_)
             : rand_pool64((size_type)(42 + 100 * ippl::Comm->rank()))
             , v_th_e(v_th_e_)
             , v_trunc_e(v_trunc_e_)
             , v_th_i(v_th_i_)
-            , v_trunc_i(v_trunc_i_) {}
+            , v_trunc_i(v_trunc_i_)
+            , alpha(alpha_)
+            , nu(nu_)
+            , gam(1.5, 0.5) {}
 
         KOKKOS_FUNCTION Vector<T, 3> fieldaligned_to_wallaligned(double vpar, double vperpx,
                                                                  double vperpy) const {
             return {
-                vperpx * Kokkos::cos(params::alpha) - vpar * Kokkos::sin(params::alpha),
+                vperpx * Kokkos::cos(alpha) - vpar * Kokkos::sin(alpha),
                 vperpy,
-                vperpx * Kokkos::sin(params::alpha) + vpar * Kokkos::cos(params::alpha),
+                vperpx * Kokkos::sin(alpha) + vpar * Kokkos::cos(alpha),
             };
         }
 
@@ -61,28 +107,27 @@ public:
             RNG::generator_type rand_gen = rand_pool64.get_state();
             Vector<T, 3> v3;
 
+
             while (true) {
-                // TODO: use samples from the Gamma distribution generated using the normal
                 // distribution samples
                 // 1. sample in field-aligned coordinates
-                // 1.a. sample vpar from the modified half-maxwellian
-                // note that by coincidence, the normalization constant for beta = 0 and beta = 2
-                // (i.e. vpar² prefactor) are the same, and evaluate to 2/√(2π)
-                const double stdpar  = s == Electrons ? v_th_e : v_th_i,
-                             v_trunc = s == Electrons ? v_trunc_e : v_trunc_i;
-
+                // 1.a. sample vpar from the modified half-maxwellian for the ions,
+                //      and from a maxwellian for the electrons
                 double vpar;
-                while (true) {
-                    vpar           = rand_gen.normal(0.0, stdpar);
-                    const double R = double(vpar > 0.0) * double(vpar < v_trunc) * 2.0
-                                     * ((s == Electrons) ? 1.0 : vpar * vpar / (v_trunc * v_trunc));
-                    if (rand_gen.drand(0.0, 1.0) < R)
-                        break;
+                if (s == Electrons) {
+                    do {
+                        vpar = rand_gen.normal(0.0, v_th_e);
+                    } while (vpar < 0.0);
+                }
+                else {
+                    // Gamma distfn: f(x) = 1/(Γ(α) θ^α) x^(α-1) exp(-x/θ),
+                    // so the transformation is x = vpar², θ = 2, α = (β+1)/2
+                    vpar = Kokkos::sqrt(gam.dev(rand_gen));
                 }
 
                 // 1.b. sample vperp coordinates
                 const double stdperp =
-                    s == Electrons ? v_th_e : v_th_i * params::nu;
+                    s == Electrons ? v_th_e : v_th_i * nu;
                 const double vperpx = rand_gen.normal(0.0, stdperp),
                              vperpy = rand_gen.normal(0.0, stdperp);
 
@@ -91,6 +136,7 @@ public:
 
                 // 3. only keep velocities for which v_x < 0 and v_x > -v_trunc (for the CFL
                 // condition) !!
+                const double v_trunc = s == Electrons ? v_trunc_e : v_trunc_i;
                 if (v3[0] < 0.0 && v3[0] > -v_trunc)
                     break;
             }
@@ -104,18 +150,14 @@ public:
     };
 
     unsigned int n_timeavg;
+    PlasmaSheathParams params;
 
-    PlasmaSheathManager(size_type totalP_, int nt_, Vector_t<int, Dim>& nr_, double lbt_,
-                        std::string& solver_, std::string& stepMethod_, std::string& directory_)
-        : n_timeavg(1)
-        , AlpineManager<T, Dim>(totalP_, nt_, nr_, lbt_, solver_, stepMethod_, directory_) {
-        setup();
-    }
-
-    PlasmaSheathManager(size_type totalP_, int nt_, Vector_t<int, Dim>& nr_, double lbt_,
+    PlasmaSheathManager(const PlasmaSheathParams& params_, size_type totalP_, int nt_, Vector_t<int, Dim>& nr_, double lbt_,
                         std::string& solver_, std::string& stepMethod_, std::string& directory_,
                         std::vector<std::string> preconditioner_params_)
-        : AlpineManager<T, Dim>(totalP_, nt_, nr_, lbt_, solver_, stepMethod_, directory_,
+        : n_timeavg(1)
+        , params(params_)
+        , AlpineManager<T, Dim>(totalP_, nt_, nr_, lbt_, solver_, stepMethod_, directory_,
                                 preconditioner_params_) {
         setup();
     }
@@ -124,6 +166,8 @@ public:
 
     void setup() {
         Inform m("Setup");
+
+        m << "setting up domain..." << endl;
 
         if ((this->solver_m != "CG") && (this->solver_m != "PCG")) {
             throw IpplException("PlasmaSheath",
@@ -139,51 +183,36 @@ public:
         // the particles are spawned at x=L (injection from bulk plasma),
         // and x=0 is the wall
         this->rmin_m   = 0.0;
-        this->rmax_m   = params::L;  // L = size of domain
+        this->rmax_m   = params.L;  // L = size of domain
         this->origin_m = this->rmin_m;
-        this->hr_m     = params::dx;
+        this->hr_m     = params.dx;
 
-        this->phiWall_m = params::phi0;  // Dirichlet BC for phi at wall (x=0)
+        this->phiWall_m = params.phi0;  // Dirichlet BC for phi at wall (x=0)
 
         // normalized B-field - vector for direction
-        this->Bext_m = {-Kokkos::cos(params::alpha), 0.0,
-                        Kokkos::sin(params::alpha)};  // External magnetic field
+        this->Bext_m = {-Kokkos::cos(params.alpha), 0.0,
+                        Kokkos::sin(params.alpha)};  // External magnetic field
 
-        this->dt_m   = params::dt;
+        this->dt_m   = params.dt;
         this->it_m   = 0;
         this->time_m = 0.0;
 
-        if (params::kinetic_electrons) {
+        if (params.kinetic_electrons) {
             // total charge is 0 since quasineutral;
             // if total no. of particles is odd, will have 1 electron more
-            this->Q_m = 0.0 + params::Z_e * (this->totalP_m % 2);
+            this->Q_m = 0.0 + params.Z_e * (this->totalP_m % 2);
         } else {
-            this->Q_m = this->totalP_m * params::Z_i;
+            this->Q_m = this->totalP_m * params.Z_i;
         }
         m << "Discretization:" << endl
           << "nt " << this->nt_m << " Np= " << this->totalP_m << " grid=" << this->nr_m
           << " dt=" << this->dt_m << endl;
-
-        m << "Parameters:" << "\n"
-          << "\tZ = " << params::Z_i << "\n"
-          << "\tn_i0/n_e0 = " << params::n_i0 << "\n"
-          << "\tm_e/m_i = " << params::m_e << "\n"
-          << "\tT_i/T_e (tau) = " << params::tau << "\n"
-          << "\tT_i_perp/T_i_par (nu) = " << params::nu << "\n"
-          << "\tD_D = " << params::D_D << "\n"
-          << "\tD_C = " << params::D_C << "\n"
-          << "\talpha (deg) = " << params::alpha * 180.0 / pi << "\n"
-          << "\tkinetic electrons = " << params::kinetic_electrons << "\n"
-          << "\n"
-          << "\tL = " << params::L << "\n"
-          << "\tdx = " << params::dx << "\n"
-          << "\tdt = " << params::dt << "\n"
-          << "\tv_max = " << params::v_max << "\n"
-          << endl;
     }
 
     void pre_run() override {
         Inform m("Pre Run");
+
+        m << "setting up fields and solver..." << endl;
 
         this->setFieldContainer(std::make_shared<FieldContainer_t>(
             this->hr_m, this->rmin_m, this->rmax_m, this->decomp_m, this->domain_m, this->origin_m,
@@ -210,6 +239,7 @@ public:
         this->setLoadBalancer(std::make_shared<LoadBalancer_t>(
             this->lbt_m, this->fcontainer_m, this->pcontainer_m, this->fsolver_m));
 
+        m << "solver warmup...." << endl;
         static IpplTimings::TimerRef DummySolveTimer = IpplTimings::getTimer("solveWarmup");
         IpplTimings::startTimer(DummySolveTimer);
 
@@ -218,7 +248,9 @@ public:
 
         IpplTimings::stopTimer(DummySolveTimer);
 
+        m << "initializing particles... " << endl;
         initializeParticles();
+        m << " done" << endl;
         this->dump();
 
         this->par2grid();
@@ -226,7 +258,7 @@ public:
         static IpplTimings::TimerRef SolveTimer = IpplTimings::getTimer("solve");
         IpplTimings::startTimer(SolveTimer);
 
-        if (!params::kinetic_electrons) {
+        if (!params.kinetic_electrons) {
             // if the electrons are adiabatic, then we have a background
             // charge density field which is given by exp(phi) where
             // phi is the previous iteration's solution (electric potential)
@@ -235,7 +267,7 @@ public:
 
             this->fcontainer_m->getRho() =
                 this->fcontainer_m->getRho()
-                + exp(this->fcontainer_m->getPhi()) * params::Z_e * params::n_e0 *
+                + exp(this->fcontainer_m->getPhi()) * params.Z_e * params.n_e0 *
                 ((double) this->totalP_m / (double)this->nr_m[0]);
         }
 
@@ -247,9 +279,6 @@ public:
 
         // save the rho and phi for computation for the time average of the fields
         resetPlasmaAverage();
-
-        // dump particle ICs
-        this->dump();
 
         m << "Done";
     }
@@ -276,13 +305,13 @@ public:
         auto hr   = this->hr_m;
 
         // particle velocity sampler
-        ParticleGen pgen(params::v_th_e, params::v_trunc_e, params::v_th_i, params::v_trunc_i);
+        ParticleGen pgen(params.v_th_e, params.v_trunc_e, params.v_th_i, params.v_trunc_i, params.alpha, params.nu);
 
         // sample particle positions uniformly in domain 
         // as steady-state seeked anyways so it doesn't matter
         int seed = 42;
         Kokkos::Random_XorShift64_Pool<> rand_pool64((size_type)(seed + 100 * ippl::Comm->rank()));
-        
+
         // charge and mass are species dependent
         view_typeQ Qview = this->pcontainer_m->q.getView();
         view_typeQ Mview = this->pcontainer_m->m.getView();
@@ -292,7 +321,12 @@ public:
         view_typeR Rview = this->pcontainer_m->R.getView();
         view_typeP Pview = this->pcontainer_m->P.getView();
 
-        if (params::kinetic_electrons) {
+        auto local_Z_e(params.Z_e),
+             local_Z_i(params.Z_i),
+             local_m_e(params.m_e),
+             local_m_i(params.m_i);
+
+        if (params.kinetic_electrons) {
             // TODO check what limits of velocity to put on vy and vz
             // half the particles are ions, half are electrons
             // we do this approximate division by checking whether even or odd ID
@@ -300,8 +334,8 @@ public:
                 "Set attributes", this->pcontainer_m->getLocalNum(), KOKKOS_LAMBDA(const int i) {
                     bool odd = (i % 2);
 
-                    Qview(i) = ((!odd) * params::Z_e) + (odd * params::Z_i);
-                    Mview(i) = ((!odd) * params::m_e) + (odd * params::m_i);
+                    Qview(i) = ((!odd) * local_Z_e) + (odd * local_Z_i);
+                    Mview(i) = ((!odd) * local_m_e) + (odd * local_m_i);
 
                     auto rand_gen = rand_pool64.get_state();
                     Rview(i) = rmax * rand_gen.drand(0.0, 1.0);
@@ -319,8 +353,8 @@ public:
             Kokkos::parallel_for(
                 "Set attributes", this->pcontainer_m->getLocalNum(),
                 KOKKOS_LAMBDA(const int i) { 
-                    Qview(i) = params::Z_i;
-                    Mview(i) = params::m_i;
+                    Qview(i) = local_Z_i;
+                    Mview(i) = local_m_i;
 
                     auto rand_gen = rand_pool64.get_state();
                     Rview(i) = rmax * rand_gen.drand(0.0, 1.0);
@@ -365,13 +399,15 @@ public:
         // and resample to insert them from plasma boundary
 
         // particle velocity sampler
-        ParticleGen pgen(params::v_th_e, params::v_trunc_e, params::v_th_i, params::v_trunc_i);
+        ParticleGen pgen(params.v_th_e, params.v_trunc_e, params.v_th_i, params.v_trunc_i, params.alpha, params.nu);
 
         auto rmin = this->rmin_m;
         auto rmax = this->rmax_m;
 
         view_typeR Rview = this->pcontainer_m->R.getView();
         view_typeP Pview = this->pcontainer_m->P.getView();
+
+        auto local_kinetic_electrons(params.kinetic_electrons);
 
         Kokkos::parallel_for(
             "Remove particle", this->pcontainer_m->getLocalNum(), KOKKOS_LAMBDA(const int i) {
@@ -385,7 +421,7 @@ public:
                     Rview(i) = rmax;
 
                     bool odd = (i % 2);
-                    if (params::kinetic_electrons) {
+                    if (local_kinetic_electrons) {
                         if (odd) {
                             Pview(i) = pgen.generate_ion();
                         } else {
@@ -420,13 +456,13 @@ public:
 
         // Field solve
         IpplTimings::startTimer(SolveTimer);
-        if (!params::kinetic_electrons) {
+        if (!params.kinetic_electrons) {
             // is the electrons are adiabatic, then we have a background
             // charge density field which is given by exp(phi) where
             // phi is the previous iteration's solution (electric potential)
             this->fcontainer_m->getRho() =
                 this->fcontainer_m->getRho()
-                + exp(this->fcontainer_m->getPhi()) * params::Z_e * params::n_e0 *
+                + exp(this->fcontainer_m->getPhi()) * params.Z_e * params.n_e0 *
                 ((double) this->totalP_m / (double)this->nr_m[0]);
         }
 
@@ -441,7 +477,7 @@ public:
         // half acceleration
         // 1/tau factor in front of (q/m)*E for physics
         IpplTimings::startTimer(ETimer);
-        pc->P = pc->P + 0.5 * dt * params::tau * (pc->q / pc->m) * pc->E;
+        pc->P = pc->P + 0.5 * dt * params.tau * (pc->q / pc->m) * pc->E;
         IpplTimings::stopTimer(ETimer);
 
         // rotation
@@ -452,10 +488,11 @@ public:
         view_typeQ Mview    = this->pcontainer_m->m.getView();
 
         // 1/D_C factor in front of (q/m)*(v x B) for physics
+        auto local_D_C(params.D_C);
         Kokkos::parallel_for(
             "Apply rotation", this->pcontainer_m->getLocalNum(), KOKKOS_LAMBDA(const int i) {
                 Vector_t<T, 3> const t =
-                    (1.0 / params::D_C) * 0.5 * dt * (Qview(i) / Mview(i)) * Bext;
+                    (1.0 / local_D_C) * 0.5 * dt * (Qview(i) / Mview(i)) * Bext;
                 Vector_t<T, 3> const w = Pview(i) + cross(Pview(i), t).apply();
                 Vector_t<T, 3> const s = (2.0 / (1 + dot(t, t).apply())) * t;
                 Pview(i)               = Pview(i) + cross(w, s);
@@ -464,7 +501,7 @@ public:
 
         // half acceleration
         IpplTimings::startTimer(ETimer);
-        pc->P = pc->P + 0.5 * dt * params::tau * (pc->q / pc->m) * pc->E;
+        pc->P = pc->P + 0.5 * dt * params.tau * (pc->q / pc->m) * pc->E;
         IpplTimings::stopTimer(ETimer);
 
         // push position (half step)
@@ -480,9 +517,12 @@ public:
         // update the incremental average
         updatePlasmaAverage();
 
-        if ((this->it_m % params::dump_interval) == 1) {
+        // dump particle data every dump_interval iters, or at the end of the simulation
+        if ((this->it_m % params.dump_interval_plasma) == 1 || (this->it_m == this->nt_m-1))
             dumpPlasma();
-        }
+
+        if ((this->it_m % params.dump_interval_particles == 1) || (this->it_m == this->nt_m-1))
+            dumpParticleData();
     }
 
     void dump() override {
@@ -496,6 +536,8 @@ public:
     }
 
     void dumpParticleData() {
+        Inform m("dumpParticleData");
+        m << "dumping particles after step " << this->it_m << " of " << this->nt_m << endl;
         typename ParticleAttrib<Vector_t<T, Dim>>::HostMirror R_host =
             this->pcontainer_m->R.getHostMirror();
         typename ParticleAttrib<Vector_t<T, 3>>::HostMirror P_host =
@@ -510,13 +552,14 @@ public:
 
         std::stringstream pname;
         pname << this->directory_m << "/ParticleIC_";
-        pname << ippl::Comm->rank();
+        pname << this->it_m;
+        // pname << ippl::Comm->rank();
         pname << ".csv";
         Inform pcsvout(NULL, pname.str().c_str(), Inform::APPEND, ippl::Comm->rank());
         pcsvout.precision(10);
         pcsvout.setf(std::ios::scientific, std::ios::floatfield);
 
-        pcsvout << "q, m, R_x, V_x, V_y, V_z" << endl;
+        pcsvout << "q m R_x V_x V_y V_z" << endl;
 
         for (size_type i = 0; i < this->pcontainer_m->getLocalNum(); i++) {
             pcsvout << q_host(i) << " ";
@@ -552,6 +595,9 @@ public:
     }
 
     void dumpPlasma() {
+        Inform m("dumpPlasma");
+        m << "dumping plasma after step " << this->it_m << " of " << this->nt_m << endl;
+
         typename Field_t<Dim>::view_type::host_mirror_type host_view_rho =
             this->fcontainer_m->getRho().getHostMirror();
         typename Field<T, Dim>::view_type::host_mirror_type host_view_phi =
