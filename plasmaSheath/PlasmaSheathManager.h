@@ -163,6 +163,7 @@ public:
         m << "Discretization:" << endl
           << "nt " << this->nt_m << " Np= " << this->totalP_m << " grid=" << this->nr_m
           << " dt=" << this->dt_m << endl;
+        m << "Total particle charge = " << this->Q_m << endl;
 
         m << "Parameters:" << "\n"
           << "\tZ = " << params::Z_i << "\n"
@@ -214,6 +215,7 @@ public:
         IpplTimings::startTimer(DummySolveTimer);
 
         this->fcontainer_m->getRho() = 0.0;
+
         this->fsolver_m->runSolver();
 
         IpplTimings::stopTimer(DummySolveTimer);
@@ -233,10 +235,15 @@ public:
             // set phi to 0 first since it has a dummy value from the warmup solve
             this->fcontainer_m->getPhi() = 0.0;
 
+            // need to multiply by total number of particles and divide by the number of cells
+            // as well as divide by the cellVolume to get the electron charge density
+            double cellVolume = std::reduce(this->hr_m.begin(), 
+                                this->hr_m.end(), 1., std::multiplies<double>());
+
             this->fcontainer_m->getRho() =
                 this->fcontainer_m->getRho()
                 + exp(this->fcontainer_m->getPhi()) * params::Z_e * params::n_e0 *
-                ((double) this->totalP_m / (double)this->nr_m[0]);
+                ((double) this->totalP_m / (double)this->nr_m[0]) / cellVolume ;
         }
 
         this->fsolver_m->runSolver();
@@ -312,6 +319,7 @@ public:
                     } else {
                         Pview(i) = pgen.generate_electron();
                     }
+                    rand_pool64.free_state(rand_gen);
                 });
         } else {
             // single species: ions
@@ -325,6 +333,8 @@ public:
                     auto rand_gen = rand_pool64.get_state();
                     Rview(i) = rmax * rand_gen.drand(0.0, 1.0);
                     Pview(i) = pgen.generate_ion();
+
+                    rand_pool64.free_state(rand_gen);
                 });
         }
         Kokkos::fence();
@@ -421,16 +431,23 @@ public:
         // Field solve
         IpplTimings::startTimer(SolveTimer);
         if (!params::kinetic_electrons) {
-            // is the electrons are adiabatic, then we have a background
+            // if the electrons are adiabatic, then we have a background
             // charge density field which is given by exp(phi) where
             // phi is the previous iteration's solution (electric potential)
+
+            // need to multiply by total number of particles and divide by the number of cells
+            // as well as divide by the cellVolume to get the electron charge density
+            double cellVolume = std::reduce(this->hr_m.begin(), 
+                                this->hr_m.end(), 1., std::multiplies<double>());
+
             this->fcontainer_m->getRho() =
                 this->fcontainer_m->getRho()
                 + exp(this->fcontainer_m->getPhi()) * params::Z_e * params::n_e0 *
-                ((double) this->totalP_m / (double)this->nr_m[0]);
+                ((double) this->totalP_m / (double)this->nr_m[0]) /  cellVolume;
         }
 
         this->fsolver_m->runSolver();
+
         IpplTimings::stopTimer(SolveTimer);
 
         // gather E field
@@ -580,7 +597,7 @@ public:
         csvout.setf(std::ios::scientific, std::ios::floatfield);
         csvout << "x rho(x) rho_timeavg(x) phi(x) phi_timeavg(x)" << endl;
 
-        for (int i = nghost; i < nx + nghost; ++i) {
+        for (int i = 0; i < nx + nghost + 1; ++i) {
             double x = (i + 0.5) * hx + orig_x;
             csvout << x << " ";
             csvout << host_view_rho(i) << " ";
