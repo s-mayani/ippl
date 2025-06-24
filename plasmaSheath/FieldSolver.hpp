@@ -56,15 +56,17 @@ public:
 
     void setPotentialBCs() {
         // we are setting Dirichlet BCs for phi
-        // phi = 0 at x = 0
-        // phi = phi_wall at x = L
+        // phi = phi_wall at x = 0
+        // phi = 0 at x = L
 
         typedef ippl::BConds<Field<T, Dim>, Dim> bc_type;
         bc_type dirichlet;
+        // iterate over the faces
+        // if face 0 (bottom x) then wall, if face 1 (upper x) then plasma
         for (unsigned int i = 0; i < 2 * Dim; ++i) {
-            if (i & 1) {
+            if (i == 1) {
                 dirichlet[i] = std::make_shared<ippl::ConstantFace<Field<T, Dim>>>(i, 0.0);
-            } else {
+            } else if (i == 0) {
                 dirichlet[i] = std::make_shared<ippl::ConstantFace<Field<T, Dim>>>(i, phiWall_m);
             }
         }
@@ -74,6 +76,7 @@ public:
     void runSolver() override {
         if ((this->getStype() == "CG") || (this->getStype() == "PCG")) {
             CGSolver_t<T, Dim>& solver = std::get<CGSolver_t<T, Dim>>(this->getSolver());
+
             solver.solve();
 
             if (ippl::Comm->rank() == 0) {
