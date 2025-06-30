@@ -312,6 +312,7 @@ public:
 
                     auto rand_gen = rand_pool64.get_state();
                     Rview(i) = rmax * rand_gen.drand(0.0, 1.0);
+                    rand_pool64.free_state(rand_gen);
 
                     // accept only those which have velocity_x > 0 (moving towards wall)
                     if (odd) {
@@ -319,7 +320,6 @@ public:
                     } else {
                         Pview(i) = pgen.generate_electron();
                     }
-                    rand_pool64.free_state(rand_gen);
                 });
         } else {
             // single species: ions
