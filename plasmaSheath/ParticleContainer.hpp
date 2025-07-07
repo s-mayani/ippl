@@ -13,6 +13,8 @@ class ParticleContainer : public ippl::ParticleBase<ippl::ParticleSpatialLayout<
 
 public:
     ippl::ParticleAttrib<double> q;  // charge
+    ippl::ParticleAttrib<double> q_e;  // charge only electrons
+    ippl::ParticleAttrib<double> q_i;  // charge only ions
     ippl::ParticleAttrib<T> m;       // mass
     particle_velocity_type P;        // particle velocity
     particle_velocity_type E;        // electric field at particle position
@@ -35,6 +37,8 @@ public:
     void registerAttributes() {
         // register the particle attributes
         this->addAttribute(q);
+        this->addAttribute(q_e);
+        this->addAttribute(q_i);
         this->addAttribute(m);
         this->addAttribute(P);
         this->addAttribute(E);

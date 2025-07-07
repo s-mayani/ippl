@@ -14,6 +14,8 @@
 #include "Random/NormalDistribution.h"
 #include "Random/Randn.h"
 
+#include "input.h"
+
 using view_type = typename ippl::detail::ViewType<ippl::Vector<double, Dim>, 1>::view_type;
 
 template <typename T, unsigned Dim>
@@ -184,6 +186,74 @@ public:
         (*rho)            = (*rho) / cellVolume;
 
         rhoNorm_m = norm(*rho);
+    }
+
+    void dumpCharges() {
+        typename Base::particle_position_type* R = &this->pcontainer_m->R;
+        ippl::ParticleAttrib<double>* q_e        = &this->pcontainer_m->q_e;
+        ippl::ParticleAttrib<double>* q_i        = &this->pcontainer_m->q_i;
+        Field_t<Dim>* rho                        = &this->fcontainer_m->getRho();
+        Vector_t<double, Dim> hr                 = hr_m;
+
+        auto& mesh = rho->get_mesh();
+        auto& layout = this->fcontainer_m->getFL();
+
+        double cellVolume = std::reduce(hr.begin(), hr.end(), 1., std::multiplies<double>());
+
+        // scatter only electrons
+        Field_t<Dim> rho_e(mesh, layout);
+        scatter(*q_e, rho_e, *R);
+        rho_e = rho_e / cellVolume;
+
+        // scatter only ions
+        Field_t<Dim> rho_i(mesh, layout);
+        scatter(*q_i, rho_i, *R);
+        rho_i = rho_i / cellVolume;
+
+        // compute total sum to compare with actual rho
+        Field_t<Dim> sumTotal(mesh, layout);
+        sumTotal = rho_e + rho_i;
+
+        // dump rho_e, rho_i, sum, and rho
+        typename Field_t<Dim>::view_type::host_mirror_type host_view_rho_e =
+            rho_e.getHostMirror();
+        Kokkos::deep_copy(host_view_rho_e, rho_e.getView());
+
+        typename Field_t<Dim>::view_type::host_mirror_type host_view_rho_i =
+            rho_i.getHostMirror();
+        Kokkos::deep_copy(host_view_rho_i, rho_i.getView());
+
+        typename Field_t<Dim>::view_type::host_mirror_type host_view_sum =
+            sumTotal.getHostMirror();
+        Kokkos::deep_copy(host_view_sum, sumTotal.getView());
+
+        typename Field_t<Dim>::view_type::host_mirror_type host_view_rho =
+            rho->getHostMirror();
+        Kokkos::deep_copy(host_view_rho, rho->getView());
+
+        const double nx     = nr_m[0];
+        const double orig_x = origin_m[0]; 
+        const double hx     = hr_m[0];
+        const int nghost = rho->getNghost();
+
+        std::stringstream fname;
+        fname << this->directory_m << "/Rho_";
+        fname << this->it_m;
+        fname << ".csv";
+        Inform csvout(NULL, fname.str().c_str(), Inform::APPEND);
+        csvout.precision(16);
+        csvout.setf(std::ios::scientific, std::ios::floatfield);
+        csvout << "x rho_e(x) rho_i(x) sum(x) rho(x)" << endl;
+
+        for (int i = 0; i < nx + nghost + 1; ++i) {
+            double x = (i + 0.5) * hx + orig_x;
+            csvout << x << " ";
+            csvout << host_view_rho_e(i) << " ";
+            csvout << host_view_rho_i(i) << " ";
+            csvout << host_view_sum(i)   << " ";
+            csvout << host_view_rho(i)   << endl;
+        }
+        ippl::Comm->barrier();
     }
 
 protected:

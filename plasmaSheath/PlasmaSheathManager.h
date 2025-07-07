@@ -221,7 +221,6 @@ public:
         IpplTimings::stopTimer(DummySolveTimer);
 
         initializeParticles();
-        this->dump();
 
         this->par2grid();
 
@@ -292,6 +291,8 @@ public:
         
         // charge and mass are species dependent
         view_typeQ Qview = this->pcontainer_m->q.getView();
+        view_typeQ QEview = this->pcontainer_m->q_e.getView();
+        view_typeQ QIview = this->pcontainer_m->q_i.getView();
         view_typeQ Mview = this->pcontainer_m->m.getView();
 
         // position is sampled uniformly in domain (we seek steady state)
@@ -308,6 +309,8 @@ public:
                     bool odd = (i % 2);
 
                     Qview(i) = ((!odd) * params::Z_e) + (odd * params::Z_i);
+                    QEview(i) = ((!odd) * params::Z_e);
+                    QIview(i) = (odd * params::Z_i);
                     Mview(i) = ((!odd) * params::m_e) + (odd * params::m_i);
 
                     auto rand_gen = rand_pool64.get_state();
@@ -328,6 +331,8 @@ public:
                 "Set attributes", this->pcontainer_m->getLocalNum(),
                 KOKKOS_LAMBDA(const int i) { 
                     Qview(i) = params::Z_i;
+                    QEview(i) = 0;
+                    QIview(i) = params::Z_i;
                     Mview(i) = params::m_i;
 
                     auto rand_gen = rand_pool64.get_state();
@@ -428,6 +433,11 @@ public:
         // scatter the charge onto the underlying grid
         this->par2grid();
 
+        // dump scattered charges
+        if (((this->it_m % params::dump_interval) == 0) || (this->it_m == 1)) {
+            this->dumpCharges();
+        }
+
         // Field solve
         IpplTimings::startTimer(SolveTimer);
         if (!params::kinetic_electrons) {
@@ -447,6 +457,14 @@ public:
         }
 
         this->fsolver_m->runSolver();
+
+        // update the incremental average
+        updatePlasmaAverage();
+
+        // dump plasma fields
+        if (((this->it_m % params::dump_interval) == 0) || (this->it_m == 1)) {
+            this->dumpPlasma();
+        }
 
         IpplTimings::stopTimer(SolveTimer);
 
@@ -493,13 +511,6 @@ public:
         IpplTimings::startTimer(updateTimer);
         pc->update();
         IpplTimings::stopTimer(updateTimer);
-
-        // update the incremental average
-        updatePlasmaAverage();
-
-        if ((this->it_m % params::dump_interval) == 1) {
-            dumpPlasma();
-        }
     }
 
     void dump() override {
