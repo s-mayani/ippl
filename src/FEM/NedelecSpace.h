@@ -119,7 +119,7 @@ namespace ippl {
          *
          * @return size_t - unsigned integer number of global degrees of freedom
          */
-        KOKKOS_FUNCTION size_t numGlobalDOFs() const override;
+        KOKKOS_FUNCTION size_t numGlobalDOFs() const;
 
         /**
          * @brief Get the elements local DOF from the element index and global
@@ -131,7 +131,7 @@ namespace ippl {
          * @return size_t - The local DOF index
          */
         KOKKOS_FUNCTION size_t getLocalDOFIndex(const size_t& elementIndex,
-                                    const size_t& globalDOFIndex) const override;
+                                    const size_t& globalDOFIndex) const;
 
         /**
          * @brief Get the global DOF index from the element index and local DOF.
@@ -142,7 +142,7 @@ namespace ippl {
          * @return size_t - The global DOF index
          */
         KOKKOS_FUNCTION size_t getGlobalDOFIndex(const size_t& elementIndex,
-                                    const size_t& localDOFIndex) const override;
+                                    const size_t& localDOFIndex) const;
 
         /**
          * @brief Get the local DOF indices (vector of local DOF indices)
@@ -151,7 +151,7 @@ namespace ippl {
          *
          * @return Vector<size_t, NumElementDOFs> - The local DOF indices
          */
-        KOKKOS_FUNCTION Vector<size_t, numElementDOFs> getLocalDOFIndices() const override;
+        KOKKOS_FUNCTION Vector<size_t, numElementDOFs> getLocalDOFIndices() const;
 
         /**
          * @brief Get the global DOF indices (vector of global DOF indices) of
@@ -162,7 +162,7 @@ namespace ippl {
          * @return Vector<size_t, NumElementDOFs> - The global DOF indices
          */
         KOKKOS_FUNCTION Vector<size_t, numElementDOFs> getGlobalDOFIndices(
-                                    const size_t& elementIndex) const override;
+                                    const size_t& elementIndex) const;
         
         /**
          * @brief Get the global DOF indices (vector of global DOF indices) of

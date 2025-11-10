@@ -170,12 +170,21 @@ namespace ippl {
         /// Degree of Freedom operations //////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////
 
+        // All the virtual functions are commented out as these cause issues
+        // when being called in the derived class in HIP space, as it means an
+        // implicit capture of the this pointer. It has issues pointing to the
+        // correct overriding function instead of the virtual in the abstract 
+        // base class. 
+        // Not removing them in case we find a solution to keep them in the 
+        // base class.
+        
+        /*
         /**
          * @brief Get the number of global degrees of freedom in the space
          *
          * @return size_t - unsigned integer number of global degrees of freedom
          */
-        KOKKOS_FUNCTION virtual size_t numGlobalDOFs() const = 0;
+        //KOKKOS_FUNCTION virtual size_t numGlobalDOFs() const = 0;
 
         /**
          * @brief Get the elements local DOF from the element index and global DOF
@@ -186,8 +195,8 @@ namespace ippl {
          *
          * @return size_t - The local DOF index
          */
-        KOKKOS_FUNCTION virtual size_t getLocalDOFIndex(const size_t& elementIndex,
-                                         const size_t& globalDOFIndex) const = 0;
+        //KOKKOS_FUNCTION virtual size_t getLocalDOFIndex(const size_t& elementIndex,
+        //                                 const size_t& globalDOFIndex) const = 0;
 
         /**
          * @brief Get the global DOF index from the element index and local DOF
@@ -197,8 +206,8 @@ namespace ippl {
          *
          * @return size_t - The global DOF index
          */
-        KOKKOS_FUNCTION virtual size_t getGlobalDOFIndex(const size_t& elementIndex,
-                                                         const size_t& localDOFIndex) const = 0;
+        //KOKKOS_FUNCTION virtual size_t getGlobalDOFIndex(const size_t& elementIndex,
+        //                                                 const size_t& localDOFIndex) const = 0;
 
         /**
          * @brief Get the local DOF indices (vector of local DOF indices)
@@ -207,7 +216,7 @@ namespace ippl {
          *
          * @return Vector<size_t, NumElementDOFs> - The local DOF indices
          */
-        KOKKOS_FUNCTION virtual Vector<size_t, NumElementDOFs> getLocalDOFIndices() const = 0;
+        //KOKKOS_FUNCTION virtual Vector<size_t, NumElementDOFs> getLocalDOFIndices() const = 0;
 
         /**
          * @brief Get the global DOF indices (vector of global DOF indices) of an element
@@ -216,8 +225,8 @@ namespace ippl {
          *
          * @return Vector<size_t, NumElementDOFs> - The global DOF indices
          */
-        KOKKOS_FUNCTION virtual Vector<size_t, NumElementDOFs> getGlobalDOFIndices(
-            const size_t& elementIndex) const = 0;
+        //KOKKOS_FUNCTION virtual Vector<size_t, NumElementDOFs> getGlobalDOFIndices(
+        //    const size_t& elementIndex) const = 0;
 
 
         ///////////////////////////////////////////////////////////////////////
