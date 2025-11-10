@@ -178,7 +178,6 @@ namespace ippl {
         // Not removing them in case we find a solution to keep them in the 
         // base class.
         
-        /*
         /**
          * @brief Get the number of global degrees of freedom in the space
          *
