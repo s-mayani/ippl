@@ -325,6 +325,7 @@ namespace ippl {
         /// my MPI rank. //////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////
         Kokkos::View<size_t*> elementIndices;
+        Kokkos::View<indices_t**> globalDOFs;
     };
 
 }  // namespace ippl

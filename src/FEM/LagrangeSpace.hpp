@@ -98,6 +98,18 @@ namespace ippl {
                     elementIndices(idx) = points(i);
                 }
             });
+
+        // assign a Kokkos view of globalDOFs which has a list of all global dofs
+        // for each element
+        globalDOFs = Kokkos::View<indices_t**>("globalDOFs", elementIndices.extent(0), numElementDOFs);
+        Kokkos::parallel_for("assign global dofs", elementIndices.extent(0),
+            KOKKOS_CLASS_LAMBDA(const int i) {
+                Vector<size_t, numElementDOFs> globalDOFs_element =
+                    this->LagrangeSpace::getGlobalDOFIndices(elementIndices(i));
+                    for (size_t j = 0; j < numElementDOFs; ++j) {
+                    globalDOFs(i, j) = this->getMeshVertexNDIndex(globalDOFs_element[j]);
+                }
+            });
     }
 
     ///////////////////////////////////////////////////////////////////////
@@ -386,6 +398,7 @@ namespace ippl {
 
         // Make local element matrix -- does not change through the element mesh
         // Element matrix
+        /*
         Vector<Vector<T, numElementDOFs>, numElementDOFs> A_K;
 
         // 1. Compute the Galerkin element matrix A_K
@@ -397,6 +410,21 @@ namespace ippl {
                 }
             }
         }
+        */
+
+        // Alternative: save A_K in view
+        Kokkos::View<T**> A_K("A_K", numElementDOFs, numElementDOFs);
+        using mdrange_type = Kokkos::MDRangePolicy<Kokkos::Rank<2>>;
+
+        Kokkos::parallel_for("assign A_K", mdrange_type({0, 0},
+            {numElementDOFs, numElementDOFs}), 
+            KOKKOS_LAMBDA(const size_t i, const size_t j) {
+                T val = 0;
+                for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
+                    val += w[k] * evalFunction(i, j, grad_b_q[k]);
+                }
+                A_K(i, j) = val;
+            });
 
         // Get field data and atomic result data,
         // since it will be added to during the kokkos loop
@@ -422,14 +450,6 @@ namespace ippl {
         Kokkos::parallel_for(
             "Loop over elements", policy_type(0, elementIndices.extent(0)),
             KOKKOS_CLASS_LAMBDA(const size_t index) {
-                const size_t elementIndex                        = elementIndices(index);
-                const Vector<size_t, numElementDOFs> global_dofs =
-                    this->LagrangeSpace::getGlobalDOFIndices(elementIndex);
-                Vector<indices_t, numElementDOFs> global_dof_ndindices;
-
-                for (size_t i = 0; i < numElementDOFs; ++i) {
-                    global_dof_ndindices[i] = this->getMeshVertexNDIndex(global_dofs[i]);
-                }
 
                 // local DOF indices (both i and j go from 0 to numDOFs-1 in the element)
                 size_t i, j;
@@ -440,7 +460,7 @@ namespace ippl {
 
                 // 2. Compute the contribution to resultAx = A*x with A_K
                 for (i = 0; i < numElementDOFs; ++i) {
-                    I_nd = global_dof_ndindices[i];
+                    I_nd = globalDOFs(index, i);
 
                     // Handle boundary DOFs
                     // If Zero Dirichlet BCs, skip this DOF
@@ -461,7 +481,7 @@ namespace ippl {
                     }
 
                     for (j = 0; j < numElementDOFs; ++j) {
-                        J_nd = global_dof_ndindices[j];
+                        J_nd = globalDOFs(index, j);
 
                         // Skip boundary DOFs (Zero & Constant Dirichlet BCs)
                         if (((bcType == ZERO_FACE) || (bcType == CONSTANT_FACE)) 
@@ -474,7 +494,7 @@ namespace ippl {
                             J_nd[d] = J_nd[d] - ldom[d].first() + nghost;
                         }
 
-                        apply(resultView, I_nd) += A_K[i][j] * apply(view, J_nd);
+                        apply(resultView, I_nd) += A_K(i, j) * apply(view, J_nd);
                     }
                 }
             });
