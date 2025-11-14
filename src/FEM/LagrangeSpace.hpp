@@ -1376,18 +1376,10 @@ namespace ippl {
         Kokkos::parallel_for(
             "Loop over elements", policy_type(0, elementIndices.extent(0)),
             KOKKOS_CLASS_LAMBDA(size_t index) {
-                const size_t elementIndex                        = elementIndices(index);
-                const Vector<size_t, numElementDOFs> global_dofs =
-                    this->LagrangeSpace::getGlobalDOFIndices(elementIndex);
-
-                size_t i, I;
 
                 // 1. Compute b_K
-                for (i = 0; i < numElementDOFs; ++i) {
-                    I = global_dofs[i];
-
-                    // TODO fix for higher order
-                    auto dof_ndindex_I = this->getMeshVertexNDIndex(I);
+                for (size_t i = 0; i < numElementDOFs; ++i) {
+                    auto dof_ndindex_I = globalDOFs(index, i);
 
                     // Skip boundary DOFs (Zero and Constant Dirichlet BCs)
                     if (((bcType == ZERO_FACE) || (bcType == CONSTANT_FACE))
@@ -1397,12 +1389,13 @@ namespace ippl {
 
                     // calculate the contribution of this element
                     T contrib = 0;
+
                     for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
                         T val = 0;
+
                         for (size_t j = 0; j < numElementDOFs; ++j) {
                             // get field index corresponding to this DOF
-                            size_t J           = global_dofs[j];
-                            auto dof_ndindex_J = this->getMeshVertexNDIndex(J);
+                            auto dof_ndindex_J = globalDOFs(index, j);
                             for (unsigned d = 0; d < Dim; ++d) {
                                 dof_ndindex_J[d] = dof_ndindex_J[d] - ldom[d].first() + nghost;
                             }
