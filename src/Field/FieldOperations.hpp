@@ -3,6 +3,8 @@
 //   Differential operators for fields
 //
 
+#include <nvtx3/nvToolsExt.h>
+
 namespace ippl {
     /*!
      * User interface of gradient
@@ -60,16 +62,22 @@ namespace ippl {
     detail::meta_laplace<Field> laplace(Field& u) {
         constexpr unsigned Dim = Field::dim;
 
+        nvtxRangePush("fillHalo");
         u.fillHalo();
+        nvtxRangePop();
+        nvtxRangePush("apply");
         BConds<Field, Dim>& bcField = u.getFieldBC();
         bcField.apply(u);
+        nvtxRangePop();
 
+        nvtxRangePush("getMesh");
         using mesh_type = typename Field::Mesh_t;
         mesh_type& mesh = u.get_mesh();
         typename mesh_type::vector_type hvector(0);
         for (unsigned d = 0; d < Dim; d++) {
             hvector[d] = 1.0 / std::pow(mesh.getMeshSpacing(d), 2);
         }
+        nvtxRangePop();
         return detail::meta_laplace<Field>(u, hvector);
     }
 
