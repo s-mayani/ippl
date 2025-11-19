@@ -83,7 +83,7 @@ int main(int argc, char* argv[]) {
         testField.initialize(mesh, layout);
 
         // set periodic boundary conditions
-        typedef ippl::BConds<field_type, dim> bc_type;
+        typedef ippl::BConds<field, dim> bc_type;
         bc_type bcField;
         for (unsigned int i = 0; i < 6; ++i) {
             bcField[i] = std::make_shared<ippl::PeriodicFace<field_type>>(i);
@@ -92,7 +92,7 @@ int main(int argc, char* argv[]) {
 
         // assign the rho field with a gaussian
         auto view    = testField.getView();
-        const int nghost = rho.getNghost();
+        const int nghost = testField.getNghost();
         const auto& ldom = layout.getLocalNDIndex();
 
         Kokkos::parallel_for(

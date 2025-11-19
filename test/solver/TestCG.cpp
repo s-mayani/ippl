@@ -36,8 +36,7 @@ int main(int argc, char* argv[]) {
 
         // Unit box
         double dx                        = 2.0 / double(pt);
-        double dy                        = 2.0 / double(ptY);
-        ippl::Vector<double, dim> hx     = {dx, dy, dx};
+        ippl::Vector<double, dim> hx     = {dx, dx, dx};
         ippl::Vector<double, dim> origin = -1;
         Mesh_t mesh(owned, hx, origin);
 
