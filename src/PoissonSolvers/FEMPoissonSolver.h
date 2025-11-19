@@ -51,6 +51,28 @@ namespace ippl {
                                 Vector<Tlhs, Dim>(0))), refElement_m, quadrature_m)
         {
             setDefaultParameters();
+
+            const Vector<size_t, Dim> zeroNdIndex = Vector<size_t, Dim>(0);
+
+            // We can pass the zeroNdIndex here, since the transformation jacobian does not depend
+            // on translation
+            const auto firstElementVertexPoints =
+                lagrangeSpace_m.getElementMeshVertexPoints(zeroNdIndex);
+
+            // Compute Inverse Transpose Transformation Jacobian ()
+            const Vector<Tlhs, Dim> DPhiInvT =
+                refElement_m.getInverseTransposeTransformationJacobian(firstElementVertexPoints);
+
+            // Compute absolute value of the determinant of the transformation jacobian (|det D
+            // Phi_K|)
+            const Tlhs absDetDPhi = Kokkos::abs(
+                refElement_m.getDeterminantOfTransformationJacobian(firstElementVertexPoints));
+
+            EvalFunctor<Tlhs, Dim, LagrangeType::numElementDOFs> poissonEquationEval(
+                DPhiInvT, absDetDPhi);
+
+            lagrangeSpace_m.initializeA_K(poissonEquationEval);
+
         }
 
         FEMPoissonSolver(lhs_type& lhs, rhs_type& rhs)

@@ -100,6 +100,43 @@ namespace ippl {
             });
     }
 
+    template <typename T, unsigned Dim, unsigned Order, typename ElementType,
+              typename QuadratureType, typename FieldLHS, typename FieldRHS>
+    template <typename F>
+    void LagrangeSpace<T, Dim, Order, ElementType, QuadratureType, FieldLHS, FieldRHS>::
+    initializeA_K(F& evalFunction) {
+        // List of quadrature weights
+        const Vector<T, QuadratureType::numElementNodes> w =
+            this->quadrature_m.getWeightsForRefElement();
+
+        // List of quadrature nodes
+        const Vector<point_t, QuadratureType::numElementNodes> q =
+            this->quadrature_m.getIntegrationNodesForRefElement();
+
+        // TODO move outside of evaluateAx (I think it is possible for other problems as well)
+        // Gradients of the basis functions for the DOF at the quadrature nodes
+        Vector<Vector<point_t, numElementDOFs>, QuadratureType::numElementNodes> grad_b_q;
+        for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
+            for (size_t i = 0; i < numElementDOFs; ++i) {
+                grad_b_q[k][i] = this->evaluateRefElementShapeFunctionGradient(i, q[k]);
+            }
+        }
+
+        // Make local element matrix -- does not change through the element mesh
+        // Element matrix
+        Vector<Vector<T, numElementDOFs>, numElementDOFs> A_K;
+
+        // 1. Compute the Galerkin element matrix A_K
+        for (size_t i = 0; i < numElementDOFs; ++i) {
+            for (size_t j = 0; j < numElementDOFs; ++j) {
+                A_K[i][j] = 0.0;
+                for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
+                    A_K[i][j] += w[k] * evalFunction(i, j, grad_b_q[k]);
+                }
+            }
+        }
+    }
+
     ///////////////////////////////////////////////////////////////////////
     /// Degree of Freedom operations //////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////
@@ -366,37 +403,6 @@ namespace ippl {
         // create a new field for result with view initialized to zero (views are initialized to
         // zero by default)
         FieldLHS resultField(field.get_mesh(), field.getLayout(), nghost);
-
-        // List of quadrature weights
-        const Vector<T, QuadratureType::numElementNodes> w =
-            this->quadrature_m.getWeightsForRefElement();
-
-        // List of quadrature nodes
-        const Vector<point_t, QuadratureType::numElementNodes> q =
-            this->quadrature_m.getIntegrationNodesForRefElement();
-
-        // TODO move outside of evaluateAx (I think it is possible for other problems as well)
-        // Gradients of the basis functions for the DOF at the quadrature nodes
-        Vector<Vector<point_t, numElementDOFs>, QuadratureType::numElementNodes> grad_b_q;
-        for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
-            for (size_t i = 0; i < numElementDOFs; ++i) {
-                grad_b_q[k][i] = this->evaluateRefElementShapeFunctionGradient(i, q[k]);
-            }
-        }
-
-        // Make local element matrix -- does not change through the element mesh
-        // Element matrix
-        Vector<Vector<T, numElementDOFs>, numElementDOFs> A_K;
-
-        // 1. Compute the Galerkin element matrix A_K
-        for (size_t i = 0; i < numElementDOFs; ++i) {
-            for (size_t j = 0; j < numElementDOFs; ++j) {
-                A_K[i][j] = 0.0;
-                for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
-                    A_K[i][j] += w[k] * evalFunction(i, j, grad_b_q[k]);
-                }
-            }
-        }
 
         // Get field data and atomic result data,
         // since it will be added to during the kokkos loop

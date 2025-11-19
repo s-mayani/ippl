@@ -110,6 +110,9 @@ namespace ippl {
          */
         void initializeElementIndices(const Layout_t& layout);
 
+        template <typename F>
+        void initializeA_K(F& evalFunction);
+
         /// Degree of Freedom operations //////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////
 
@@ -325,6 +328,9 @@ namespace ippl {
         /// my MPI rank. //////////////////////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////
         Kokkos::View<size_t*> elementIndices;
+        
+        // Private member containing the reference element matrix A_K
+        Vector<Vector<T, numElementDOFs>, numElementDOFs> A_K;
     };
 
 }  // namespace ippl
