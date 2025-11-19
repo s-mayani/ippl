@@ -42,7 +42,6 @@ int main(int argc, char* argv[]) {
         using Mesh_t      = ippl::UniformCartesian<double, 3>;
         using Centering_t = Mesh_t::DefaultCentering;
         typedef ippl::Field<double, Dim, Mesh_t, Centering_t> field;
-        typedef ippl::Field<ippl::Vector<double, Dim>, Dim, Mesh_t, Centering_t> fieldV;
 
         // start a timer
         static IpplTimings::TimerRef allTimer = IpplTimings::getTimer("allTimer");
