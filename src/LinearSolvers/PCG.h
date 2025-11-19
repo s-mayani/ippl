@@ -6,6 +6,8 @@
 #ifndef IPPL_PCG_H
 #define IPPL_PCG_H
 
+#include <nvtx3/nvToolsExt.h>
+
 #include "Preconditioner.h"
 #include "SolverAlgorithm.h"
 #include "FEM/FEMVector.h"
@@ -122,6 +124,7 @@ namespace ippl {
             while (iterations_m < maxIterations && residueNorm > tolerance) {
                 q = op_m(d);
 
+                nvtxRangePush("cg_operations");
                 T alpha = delta1 / innerProduct(d, q);
                 lhs     = lhs + alpha * d;
 
@@ -140,6 +143,7 @@ namespace ippl {
                 residueNorm = std::sqrt(delta1);
                 d           = r + beta * d;
                 ++iterations_m;
+                nvtxRangePop();
             }
 
             if (allFacesPeriodic) {

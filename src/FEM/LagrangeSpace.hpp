@@ -1,3 +1,4 @@
+#include <nvtx3/nvToolsExt.h>
 
 namespace ippl {
 
@@ -355,10 +356,15 @@ namespace ippl {
         static IpplTimings::TimerRef evalAx_outer = IpplTimings::getTimer("evaluateAx: outer loop");
         static IpplTimings::TimerRef evalAx_bc = IpplTimings::getTimer("evaluateAx: BCs");
         static IpplTimings::TimerRef evalAx_setup = IpplTimings::getTimer("evaluateAx: setup");
+        static IpplTimings::TimerRef accumHalo = IpplTimings::getTimer("evaluateAx: accumHalo");
+        static IpplTimings::TimerRef applyBCs = IpplTimings::getTimer("evaluateAx: apply");
+        static IpplTimings::TimerRef ghostToPhys = IpplTimings::getTimer("evaluateAx: ghostToPhys");
 
         // start a timer
         IpplTimings::startTimer(evalAx);
         IpplTimings::startTimer(evalAx_setup);
+
+        nvtxRangePush("evalAx_setup");
 
         // get number of ghost cells in field
         const int nghost = field.getNghost();
@@ -410,6 +416,8 @@ namespace ippl {
         // Get domain information
         auto ldom = (field.getLayout()).getLocalNDIndex();
 
+        nvtxRangePop();
+
         using exec_space  = typename Kokkos::View<const size_t*>::execution_space;
         using policy_type = Kokkos::RangePolicy<exec_space>;
 
@@ -418,6 +426,7 @@ namespace ippl {
         // start a timer
         IpplTimings::startTimer(evalAx_outer);
 
+        nvtxRangePush("kokkos_loop");
         // Loop over elements to compute contributions
         Kokkos::parallel_for(
             "Loop over elements", policy_type(0, elementIndices.extent(0)),
@@ -482,15 +491,28 @@ namespace ippl {
                     }
                 }
             });
+        nvtxRangePop();
         IpplTimings::stopTimer(evalAx_outer);
 
         // start a timer
         IpplTimings::startTimer(evalAx_bc);
 
         if (bcType == PERIODIC_FACE) {
+            IpplTimings::startTimer(accumHalo);
+            nvtxRangePush("accumHalo");
             resultField.accumulateHalo();
+            nvtxRangePop();
+            IpplTimings::stopTimer(accumHalo);
+            IpplTimings::startTimer(applyBCs);
+            nvtxRangePush("apply");
             bcField.apply(resultField);
+            nvtxRangePop();
+            IpplTimings::stopTimer(applyBCs);
+            IpplTimings::startTimer(ghostToPhys);
+            nvtxRangePush("assignGhostToPhys");
             bcField.assignGhostToPhysical(resultField);
+            nvtxRangePop();
+            IpplTimings::stopTimer(ghostToPhys);
         } else {
             resultField.accumulateHalo_noghost();
         }
