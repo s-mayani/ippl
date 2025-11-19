@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
         typedef ippl::BConds<field, dim> bc_type;
         bc_type bcField;
         for (unsigned int i = 0; i < 6; ++i) {
-            bcField[i] = std::make_shared<ippl::PeriodicFace<field_type>>(i);
+            bcField[i] = std::make_shared<ippl::PeriodicFace<field>>(i);
         }
         testField.setFieldBC(bcField);
 
