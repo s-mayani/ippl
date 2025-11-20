@@ -8,7 +8,7 @@ namespace ippl {
               typename QuadratureType, typename FieldLHS, typename FieldRHS>
     LagrangeSpace<T, Dim, Order, ElementType, QuadratureType, FieldLHS, FieldRHS>::LagrangeSpace(
         UniformCartesian<T, Dim>& mesh, ElementType& ref_element, const QuadratureType& quadrature,
-        const Layout_t& layout)
+        Layout_t& layout)
         : FiniteElementSpace<T, Dim, getLagrangeNumElementDOFs(Dim, Order), ElementType,
                              QuadratureType, FieldLHS, FieldRHS>(mesh, ref_element, quadrature) {
         // Assert that the dimension is either 1, 2 or 3.
@@ -17,6 +17,9 @@ namespace ippl {
 
         // Initialize the elementIndices view
         initializeElementIndices(layout);
+
+        // Initialize the resultField
+        resultField.initialize(mesh, layout);
     }
 
     // LagrangeSpace constructor, which calls the FiniteElementSpace constructor.
@@ -37,20 +40,23 @@ namespace ippl {
     template <typename T, unsigned Dim, unsigned Order, typename ElementType,
               typename QuadratureType, typename FieldLHS, typename FieldRHS>
     void LagrangeSpace<T, Dim, Order, ElementType, QuadratureType, FieldLHS, FieldRHS>::initialize(
-        UniformCartesian<T, Dim>& mesh, const Layout_t& layout)
+        UniformCartesian<T, Dim>& mesh, Layout_t& layout)
     {
         FiniteElementSpace<T, Dim, getLagrangeNumElementDOFs(Dim, Order), ElementType,
                            QuadratureType, FieldLHS, FieldRHS>::setMesh(mesh);
 
         // Initialize the elementIndices view
         initializeElementIndices(layout);
+
+        // Initialize the resultField
+        resultField.initialize(mesh, layout);
     }
 
     // Initialize element indices Kokkos View by distributing elements among MPI ranks.
     template <typename T, unsigned Dim, unsigned Order, typename ElementType,
               typename QuadratureType, typename FieldLHS, typename FieldRHS>
     void LagrangeSpace<T, Dim, Order, ElementType, QuadratureType, FieldLHS,
-                       FieldRHS>::initializeElementIndices(const Layout_t& layout) {
+                       FieldRHS>::initializeElementIndices(Layout_t& layout) {
         const auto& ldom = layout.getLocalNDIndex();
         int npoints      = ldom.size();
         auto first       = ldom.first();
@@ -348,7 +354,7 @@ namespace ippl {
               typename QuadratureType, typename FieldLHS, typename FieldRHS>
     template <typename F>
     FieldLHS LagrangeSpace<T, Dim, Order, ElementType, QuadratureType, FieldLHS,
-                           FieldRHS>::evaluateAx(FieldLHS& field, F& evalFunction) const {
+                           FieldRHS>::evaluateAx(FieldLHS& field, F& evalFunction) {
         Inform m("");
 
         // declare timers
@@ -366,12 +372,8 @@ namespace ippl {
 
         nvtxRangePush("evalAx_setup");
 
-        // get number of ghost cells in field
-        const int nghost = field.getNghost();
-
-        // create a new field for result with view initialized to zero (views are initialized to
-        // zero by default)
-        FieldLHS resultField(field.get_mesh(), field.getLayout(), nghost);
+        // set result field to 0
+        resultField = 0.0;
 
         // List of quadrature weights
         const Vector<T, QuadratureType::numElementNodes> w =
@@ -413,8 +415,10 @@ namespace ippl {
         BConds<FieldLHS, Dim>& bcField = field.getFieldBC();
         FieldBC bcType = bcField[0]->getBCType();
 
-        // Get domain information
+        // Get domain and ghost cell information
         auto ldom = (field.getLayout()).getLocalNDIndex();
+        // Get number of ghost cells in field
+        const int nghost = field.getNghost();
 
         nvtxRangePop();
 
@@ -527,7 +531,7 @@ namespace ippl {
               typename QuadratureType, typename FieldLHS, typename FieldRHS>
     template <typename F>
     FieldLHS LagrangeSpace<T, Dim, Order, ElementType, QuadratureType, FieldLHS,
-                           FieldRHS>::evaluateAx_lower(FieldLHS& field, F& evalFunction) const {
+                           FieldRHS>::evaluateAx_lower(FieldLHS& field, F& evalFunction) {
         Inform m("");
 
         // declare timer
@@ -536,12 +540,8 @@ namespace ippl {
         // start a timer
         IpplTimings::startTimer(evalAx_lower);
 
-        // get number of ghost cells in field
-        const int nghost = field.getNghost();
-
-        // create a new field for result with view initialized to zero (views are initialized to
-        // zero by default)
-        FieldLHS resultField(field.get_mesh(), field.getLayout(), nghost);
+        // set result field to 0
+        resultField = 0.0;
 
         // List of quadrature weights
         const Vector<T, QuadratureType::numElementNodes> w =
@@ -585,6 +585,8 @@ namespace ippl {
 
         // Get domain information
         auto ldom = (field.getLayout()).getLocalNDIndex();
+        // Get number of ghost cells in field
+        const int nghost = field.getNghost();
 
         using exec_space  = typename Kokkos::View<const size_t*>::execution_space;
         using policy_type = Kokkos::RangePolicy<exec_space>;
@@ -671,7 +673,7 @@ namespace ippl {
               typename QuadratureType, typename FieldLHS, typename FieldRHS>
     template <typename F>
     FieldLHS LagrangeSpace<T, Dim, Order, ElementType, QuadratureType, FieldLHS,
-                           FieldRHS>::evaluateAx_upper(FieldLHS& field, F& evalFunction) const {
+                           FieldRHS>::evaluateAx_upper(FieldLHS& field, F& evalFunction) {
         Inform m("");
 
         // declare timer
@@ -680,12 +682,8 @@ namespace ippl {
         // start a timer
         IpplTimings::startTimer(evalAx_upper);
 
-        // get number of ghost cells in field
-        const int nghost = field.getNghost();
-
-        // create a new field for result with view initialized to zero (views are initialized to
-        // zero by default)
-        FieldLHS resultField(field.get_mesh(), field.getLayout(), nghost);
+        // set result field to 0
+        resultField = 0.0;
 
         // List of quadrature weights
         const Vector<T, QuadratureType::numElementNodes> w =
@@ -729,6 +727,8 @@ namespace ippl {
 
         // Get domain information
         auto ldom = (field.getLayout()).getLocalNDIndex();
+        // Get number of ghost cells in field
+        const int nghost = field.getNghost();
 
         using exec_space  = typename Kokkos::View<const size_t*>::execution_space;
         using policy_type = Kokkos::RangePolicy<exec_space>;
@@ -815,7 +815,7 @@ namespace ippl {
               typename QuadratureType, typename FieldLHS, typename FieldRHS>
     template <typename F>
     FieldLHS LagrangeSpace<T, Dim, Order, ElementType, QuadratureType, FieldLHS,
-                           FieldRHS>::evaluateAx_upperlower(FieldLHS& field, F& evalFunction) const {
+                           FieldRHS>::evaluateAx_upperlower(FieldLHS& field, F& evalFunction) {
         Inform m("");
 
         // declare timer
@@ -824,12 +824,8 @@ namespace ippl {
         // start a timer
         IpplTimings::startTimer(evalAx_upperlower);
 
-        // get number of ghost cells in field
-        const int nghost = field.getNghost();
-
-        // create a new field for result with view initialized to zero (views are initialized to
-        // zero by default)
-        FieldLHS resultField(field.get_mesh(), field.getLayout(), nghost);
+        // set result field to 0
+        resultField = 0.0;
 
         // List of quadrature weights
         const Vector<T, QuadratureType::numElementNodes> w =
@@ -873,6 +869,8 @@ namespace ippl {
 
         // Get domain information
         auto ldom = (field.getLayout()).getLocalNDIndex();
+        // Get number of ghost cells in field
+        const int nghost = field.getNghost();
 
         using exec_space  = typename Kokkos::View<const size_t*>::execution_space;
         using policy_type = Kokkos::RangePolicy<exec_space>;
@@ -960,7 +958,7 @@ namespace ippl {
               typename QuadratureType, typename FieldLHS, typename FieldRHS>
     template <typename F>
     FieldLHS LagrangeSpace<T, Dim, Order, ElementType, QuadratureType, FieldLHS,
-                           FieldRHS>::evaluateAx_inversediag(FieldLHS& field, F& evalFunction) const {
+                           FieldRHS>::evaluateAx_inversediag(FieldLHS& field, F& evalFunction) {
         Inform m("");
 
         // declare timer
@@ -969,12 +967,8 @@ namespace ippl {
         // start a timer
         IpplTimings::startTimer(evalAx_invdiag);
 
-        // get number of ghost cells in field
-        const int nghost = field.getNghost();
-
-        // create a new field for result with view initialized to zero (views are initialized to
-        // zero by default)
-        FieldLHS resultField(field.get_mesh(), field.getLayout(), nghost);
+        // set result field to 0
+        resultField = 0.0;
 
         // List of quadrature weights
         const Vector<T, QuadratureType::numElementNodes> w =
@@ -1016,6 +1010,8 @@ namespace ippl {
 
         // Get domain information
         auto ldom = (field.getLayout()).getLocalNDIndex();
+        // Get number of ghost cells in field
+        const int nghost = field.getNghost();
 
         using exec_space  = typename Kokkos::View<const size_t*>::execution_space;
         using policy_type = Kokkos::RangePolicy<exec_space>;
@@ -1093,7 +1089,7 @@ namespace ippl {
               typename QuadratureType, typename FieldLHS, typename FieldRHS>
     template <typename F>
     FieldLHS LagrangeSpace<T, Dim, Order, ElementType, QuadratureType, FieldLHS,
-                           FieldRHS>::evaluateAx_diag(FieldLHS& field, F& evalFunction) const {
+                           FieldRHS>::evaluateAx_diag(FieldLHS& field, F& evalFunction) {
         Inform m("");
         
         // declare timer
@@ -1102,12 +1098,8 @@ namespace ippl {
         // start a timer
         IpplTimings::startTimer(evalAx_diag);
 
-        // get number of ghost cells in field
-        const int nghost = field.getNghost();
-
-        // create a new field for result with view initialized to zero (views are initialized to
-        // zero by default)
-        FieldLHS resultField(field.get_mesh(), field.getLayout(), nghost);
+        // set result field to 0
+        resultField = 0.0;
 
         // List of quadrature weights
         const Vector<T, QuadratureType::numElementNodes> w =
@@ -1149,6 +1141,8 @@ namespace ippl {
 
         // Get domain information
         auto ldom = (field.getLayout()).getLocalNDIndex();
+        // Get number of ghost cells in field
+        const int nghost = field.getNghost();
 
         using exec_space  = typename Kokkos::View<const size_t*>::execution_space;
         using policy_type = Kokkos::RangePolicy<exec_space>;
@@ -1215,7 +1209,7 @@ namespace ippl {
               typename QuadratureType, typename FieldLHS, typename FieldRHS>
     template <typename F>
     FieldLHS LagrangeSpace<T, Dim, Order, ElementType, QuadratureType, FieldLHS,
-                           FieldRHS>::evaluateAx_lift(FieldLHS& field, F& evalFunction) const {
+                           FieldRHS>::evaluateAx_lift(FieldLHS& field, F& evalFunction) {
         Inform m("");
 
         // declare timer
@@ -1224,12 +1218,8 @@ namespace ippl {
         // start a timer
         IpplTimings::startTimer(evalLifting);
 
-        // get number of ghost cells in field
-        const int nghost = field.getNghost();
-
-        // create a new field for result with view initialized to zero (views are initialized to
-        // zero by default)
-        FieldLHS resultField(field.get_mesh(), field.getLayout(), nghost);
+        // set result field to 0
+        resultField = 0.0;
 
         // List of quadrature weights
         const Vector<T, QuadratureType::numElementNodes> w =
@@ -1269,6 +1259,8 @@ namespace ippl {
 
         // Get domain information
         auto ldom = (field.getLayout()).getLocalNDIndex();
+        // Get number of ghost cells in field
+        const int nghost = field.getNghost();
 
         using exec_space  = typename Kokkos::View<const size_t*>::execution_space;
         using policy_type = Kokkos::RangePolicy<exec_space>;
