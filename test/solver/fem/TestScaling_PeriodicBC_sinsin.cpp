@@ -148,11 +148,11 @@ void testFEMSolver(const unsigned& numNodesPerDim, const T& domain_start = 0.0,
     // set the parameters
     ippl::ParameterList params;
     params.add("tolerance", 1e-13);
-    params.add("max_iterations", 5);
+    params.add("max_iterations", 2000);
     solver.mergeParameters(params);
 
     // solve the problem
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < 5; ++i) {
         solver.solve();
     }
 

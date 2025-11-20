@@ -97,7 +97,8 @@ int main(int argc, char* argv[]) {
         ippl::PoissonCG<field_type> lapsolver;
 
         ippl::ParameterList params;
-        params.add("max_iterations", 5);
+        params.add("max_iterations", 2000);
+        params.add("tolerance", 1e-13);
         params.add("solver", solver);
 
         lapsolver.mergeParameters(params);
@@ -106,7 +107,7 @@ int main(int argc, char* argv[]) {
         lapsolver.setLhs(lhs);
 
         lhs = 0;
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < 5; ++i) {
             lapsolver.solve();
         }
 
