@@ -112,15 +112,17 @@ int main(int argc, char* argv[]) {
         nvtxRangePop();
         IpplTimings::stopTimer(init);
 
-        // start a timer
         static IpplTimings::TimerRef accumulate = IpplTimings::getTimer("accumulateHalo");
-        IpplTimings::startTimer(accumulate);
+        for (int i = 0; i < 4; i++) {
+            // start a timer
+            IpplTimings::startTimer(accumulate);
+            nvtxRangePush("accumulateHalo");
 
-        nvtxRangePush("accumulateHalo");
-        testField.accumulateHalo();
-        nvtxRangePop();
-
-        IpplTimings::stopTimer(accumulate);
+            testField.accumulateHalo();
+            
+            nvtxRangePop();
+            IpplTimings::stopTimer(accumulate);
+        }
 
         // stop the timers
         IpplTimings::stopTimer(allTimer);

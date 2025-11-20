@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
         lapsolver.setLhs(lhs);
 
         lhs = 0;
-        for (int i = 0; i < 2; ++i) {
+        for (int i = 0; i < 4; ++i) {
             lapsolver.solve();
         }
 
