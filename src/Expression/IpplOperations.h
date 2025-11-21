@@ -5,8 +5,6 @@
 #ifndef IPPL_OPERATIONS_H
 #define IPPL_OPERATIONS_H
 
-#include <nvtx3/nvToolsExt.h>
-
 #include <Kokkos_MathematicalFunctions.hpp>
 #include <tuple>
 
@@ -430,7 +428,6 @@ namespace ippl {
              */
             template <typename... Idx>
             KOKKOS_INLINE_FUNCTION auto operator()(const Idx... args) const {
-                nvtxRangePush("applyOperator");
                 using index_type = std::tuple_element_t<0, std::tuple<Idx...>>;
                 using T          = typename E::Mesh_t::value_type;
 
@@ -453,7 +450,6 @@ namespace ippl {
 
                     res += hvector_m[d] * (left - 2 * center + right);
                 }
-                nvtxRangePop();
                 return res;
             }
 

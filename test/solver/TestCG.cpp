@@ -29,6 +29,10 @@ int main(int argc, char* argv[]) {
         static IpplTimings::TimerRef allTimer = IpplTimings::getTimer("allTimer");
         IpplTimings::startTimer(allTimer);
 
+        // start the timer
+        static IpplTimings::TimerRef initTimer = IpplTimings::getTimer("initTest");
+        IpplTimings::startTimer(initTimer);
+
         ippl::Index I(pt);
         ippl::NDIndex<dim> owned(I, I, I);
 
@@ -112,6 +116,8 @@ int main(int argc, char* argv[]) {
         lapsolver.setRhs(rhs);
         lapsolver.setLhs(lhs);
 
+        IpplTimings::stopTimer(initTimer);
+
         // start the timer
         static IpplTimings::TimerRef solveTimer = IpplTimings::getTimer("solve");
         for (int i = 0; i < 5; ++i) {
@@ -121,18 +127,18 @@ int main(int argc, char* argv[]) {
             lapsolver.solve();
             IpplTimings::stopTimer(solveTimer);
 
-	    field_type error(mesh, layout);
+	        field_type error(mesh, layout);
             // Solver solution - analytical solution
-	    error           = lhs - solution;
-	    double relError = norm(error) / norm(solution);
+	        error           = lhs - solution;
+	        double relError = norm(error) / norm(solution);
 
-	    // Laplace(solver solution) - rhs
-	    error          = -laplace(lhs) - rhs;
-	    double residue = norm(error) / norm(rhs);
+	        // Laplace(solver solution) - rhs
+	        error          = -laplace(lhs) - rhs;
+	        double residue = norm(error) / norm(rhs);
 
-	    int itCount = lapsolver.getIterationCount();
-            m << pt << "," << std::setprecision(16) << relError << "," << residue << "," << itCount
-	      << endl;
+	        int itCount = lapsolver.getIterationCount();
+            m << pt << "," << std::setprecision(16) << relError << "," << residue << "," 
+              << itCount << endl;
 
             Kokkos::parallel_for(
             "Assign rhs", policyRHS, KOKKOS_LAMBDA(const int i, const int j, const int k) {

@@ -1,5 +1,3 @@
-#include <nvtx3/nvToolsExt.h>
-
 namespace ippl {
 
     // LagrangeSpace constructor, which calls the FiniteElementSpace constructor,
@@ -370,8 +368,6 @@ namespace ippl {
         IpplTimings::startTimer(evalAx);
         IpplTimings::startTimer(evalAx_setup);
 
-        nvtxRangePush("evalAx_setup");
-
         // set result field to 0
         resultField = 0.0;
 
@@ -420,8 +416,6 @@ namespace ippl {
         // Get number of ghost cells in field
         const int nghost = field.getNghost();
 
-        nvtxRangePop();
-
         using exec_space  = typename Kokkos::View<const size_t*>::execution_space;
         using policy_type = Kokkos::RangePolicy<exec_space>;
 
@@ -430,7 +424,6 @@ namespace ippl {
         // start a timer
         IpplTimings::startTimer(evalAx_outer);
 
-        nvtxRangePush("kokkos_loop");
         // Loop over elements to compute contributions
         Kokkos::parallel_for(
             "Loop over elements", policy_type(0, elementIndices.extent(0)),
@@ -495,7 +488,6 @@ namespace ippl {
                     }
                 }
             });
-        nvtxRangePop();
         IpplTimings::stopTimer(evalAx_outer);
 
         // start a timer
@@ -503,19 +495,19 @@ namespace ippl {
 
         if (bcType == PERIODIC_FACE) {
             IpplTimings::startTimer(accumHalo);
-            nvtxRangePush("accumHalo");
+
             resultField.accumulateHalo();
-            nvtxRangePop();
+            
             IpplTimings::stopTimer(accumHalo);
             IpplTimings::startTimer(applyBCs);
-            nvtxRangePush("apply");
+            
             bcField.apply(resultField);
-            nvtxRangePop();
+            
             IpplTimings::stopTimer(applyBCs);
             IpplTimings::startTimer(ghostToPhys);
-            nvtxRangePush("assignGhostToPhys");
+            
             bcField.assignGhostToPhysical(resultField);
-            nvtxRangePop();
+
             IpplTimings::stopTimer(ghostToPhys);
         } else {
             resultField.accumulateHalo_noghost();

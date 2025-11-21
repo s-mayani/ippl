@@ -154,8 +154,8 @@ void testFEMSolver(const unsigned& numNodesPerDim, const T& domain_start = 0.0,
     // solve the problem
     // start the timer
     static IpplTimings::TimerRef solveTimer = IpplTimings::getTimer("solve");
-    for (int i = 0; i < 5; ++i) {
-	lhs = 0;
+    for (int i = 0; i < 2; ++i) {
+	    lhs = 0;
 
         IpplTimings::startTimer(solveTimer);
         solver.solve();
@@ -175,6 +175,7 @@ void testFEMSolver(const unsigned& numNodesPerDim, const T& domain_start = 0.0,
         m << std::setw(15) << std::setprecision(16) << solver.getIterationCount();
         m << endl;
 
+        rhs = 0;
         ippl::parallel_for(
         "Assign RHS", rhs.getFieldRangePolicy(), KOKKOS_LAMBDA(const index_array_type& args) {
             ippl::Vector<int, Dim> iVec = args - numGhosts;

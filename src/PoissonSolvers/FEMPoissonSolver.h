@@ -5,8 +5,6 @@
 #ifndef IPPL_FEMPOISSONSOLVER_H
 #define IPPL_FEMPOISSONSOLVER_H
 
-#include <nvtx3/nvToolsExt.h>
-
 #include "LinearSolvers/PCG.h"
 #include "Poisson.h"
 #include "EvalFunctor.h"
@@ -113,13 +111,8 @@ namespace ippl {
 
             const auto algoOperator = [poissonEquationEval, &bcField, this](rhs_type field) -> lhs_type {
                 // set appropriate BCs for the field as the info gets lost in the CG iteration
-                nvtxRangePush("setFieldBC");
                 field.setFieldBC(bcField);
-                nvtxRangePop();
-
-                nvtxRangePush("fillHalo");
                 field.fillHalo();
-                nvtxRangePop();
 
                 auto return_field = lagrangeSpace_m.evaluateAx(field, poissonEquationEval);
 
