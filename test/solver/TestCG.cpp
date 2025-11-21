@@ -16,12 +16,18 @@
 int main(int argc, char* argv[]) {
     ippl::initialize(argc, argv);
     {
+	Inform m("");
+
         constexpr unsigned int dim = 3;
         using Mesh_t               = ippl::UniformCartesian<double, 3>;
         using Centering_t          = Mesh_t::DefaultCentering;
 
         unsigned pt = std::atoi(argv[1]);
         std::string solver = "not preconditioned";
+
+        // start the timer
+        static IpplTimings::TimerRef allTimer = IpplTimings::getTimer("allTimer");
+        IpplTimings::startTimer(allTimer);
 
         ippl::Index I(pt);
         ippl::NDIndex<dim> owned(I, I, I);
@@ -106,10 +112,50 @@ int main(int argc, char* argv[]) {
         lapsolver.setRhs(rhs);
         lapsolver.setLhs(lhs);
 
-        lhs = 0;
+        // start the timer
+        static IpplTimings::TimerRef solveTimer = IpplTimings::getTimer("solve");
         for (int i = 0; i < 5; ++i) {
+            lhs = 0;
+
+            IpplTimings::startTimer(solveTimer);
             lapsolver.solve();
+            IpplTimings::stopTimer(solveTimer);
+
+	    field_type error(mesh, layout);
+            // Solver solution - analytical solution
+	    error           = lhs - solution;
+	    double relError = norm(error) / norm(solution);
+
+	    // Laplace(solver solution) - rhs
+	    error          = -laplace(lhs) - rhs;
+	    double residue = norm(error) / norm(rhs);
+
+	    int itCount = lapsolver.getIterationCount();
+            m << pt << "," << std::setprecision(16) << relError << "," << residue << "," << itCount
+	      << endl;
+
+            Kokkos::parallel_for(
+            "Assign rhs", policyRHS, KOKKOS_LAMBDA(const int i, const int j, const int k) {
+                const size_t ig = i + lDom[0].first() - shift2;
+                const size_t jg = j + lDom[1].first() - shift2;
+                const size_t kg = k + lDom[2].first() - shift2;
+                double x        = (ig + 0.5) * hx[0];
+                double y        = (jg + 0.5) * hx[1];
+                double z        = (kg + 0.5) * hx[2];
+
+                viewRHS(i, j, k) =
+                    pow(pi, 2)
+                    * (cos(sin(pi * z)) * sin(pi * z) * sin(sin(pi * x)) * sin(sin(pi * y))
+                       + (cos(sin(pi * y)) * sin(pi * y) * sin(sin(pi * x))
+                          + (cos(sin(pi * x)) * sin(pi * x)
+                             + (pow(cos(pi * x), 2) + pow(cos(pi * y), 2) + pow(cos(pi * z), 2))
+                                   * sin(sin(pi * x)))
+                                * sin(sin(pi * y)))
+                             * sin(sin(pi * z)));
+            });
         }
+
+        IpplTimings::stopTimer(allTimer);
 
         IpplTimings::print();
         IpplTimings::print("timings.dat");

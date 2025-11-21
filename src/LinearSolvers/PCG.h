@@ -83,6 +83,12 @@ namespace ippl {
             iterations_m            = 0;
             const int maxIterations = params.get<int>("max_iterations");
 
+            static IpplTimings::TimerRef allocateFields = IpplTimings::getTimer("allocateFields");
+            static IpplTimings::TimerRef apply = IpplTimings::getTimer("applyOp");
+            static IpplTimings::TimerRef inner = IpplTimings::getTimer("innerProduct");
+            static IpplTimings::TimerRef operations = IpplTimings::getTimer("operations");
+	    IpplTimings::startTimer(allocateFields);
+
             // Variable names mostly based on description in
             // https://www.cs.cmu.edu/~quake-papers/painless-conjugate-gradient.pdf
             lhs_type r(mesh, layout);
@@ -109,8 +115,10 @@ namespace ippl {
                     return;
                 }
             }
+           
 
             r = rhs - op_m(lhs);
+
             d = r.deepCopy();
             d.setFieldBC(bc);
 
@@ -120,12 +128,19 @@ namespace ippl {
             const T tolerance = params.get<T>("tolerance") * norm(rhs);
 
             lhs_type q(mesh, layout);
+	    IpplTimings::stopTimer(allocateFields);
 
             while (iterations_m < maxIterations && residueNorm > tolerance) {
+	        IpplTimings::startTimer(apply);
                 q = op_m(d);
+         	IpplTimings::stopTimer(apply);
+
+	        IpplTimings::startTimer(inner);
 
                 nvtxRangePush("cg_operations");
                 T alpha = delta1 / innerProduct(d, q);
+	        IpplTimings::stopTimer(inner);
+	        IpplTimings::startTimer(operations);
                 lhs     = lhs + alpha * d;
 
                 // The exact residue is given by
@@ -137,13 +152,18 @@ namespace ippl {
                 // iterations to offset accumulated floating point errors
                 r      = r - alpha * q;
                 delta0 = delta1;
+	        IpplTimings::stopTimer(operations);
+	        IpplTimings::startTimer(inner);
                 delta1 = innerProduct(r, r);
+	        IpplTimings::stopTimer(inner);
+	        IpplTimings::startTimer(operations);
                 T beta = delta1 / delta0;
 
                 residueNorm = std::sqrt(delta1);
                 d           = r + beta * d;
                 ++iterations_m;
                 nvtxRangePop();
+	        IpplTimings::stopTimer(operations);
             }
 
             if (allFacesPeriodic) {

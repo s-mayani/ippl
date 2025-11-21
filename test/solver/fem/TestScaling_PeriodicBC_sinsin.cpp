@@ -152,29 +152,41 @@ void testFEMSolver(const unsigned& numNodesPerDim, const T& domain_start = 0.0,
     solver.mergeParameters(params);
 
     // solve the problem
-    for (int i = 0; i < 5; ++i) {
-        solver.solve();
-    }
-
     // start the timer
-    static IpplTimings::TimerRef errorTimer = IpplTimings::getTimer("computeError");
-    IpplTimings::startTimer(errorTimer);
+    static IpplTimings::TimerRef solveTimer = IpplTimings::getTimer("solve");
+    for (int i = 0; i < 5; ++i) {
+	lhs = 0;
 
-    // Compute the error
-    const T relError = solver.getL2Error(analytic);
+        IpplTimings::startTimer(solveTimer);
+        solver.solve();
+        IpplTimings::stopTimer(solveTimer);
 
-    lhs = lhs - analytical;
-    T normError = norm(lhs) / norm(analytical);
+        // Compute the error
+        const T relError = solver.getL2Error(analytic);
 
-    m << std::setw(10) << numNodesPerDim;
-    m << std::setw(25) << std::setprecision(16) << cellSpacing[0];
-    m << std::setw(25) << std::setprecision(16) << relError;
-    m << std::setw(25) << std::setprecision(16) << normError;
-    m << std::setw(25) << std::setprecision(16) << solver.getResidue();
-    m << std::setw(15) << std::setprecision(16) << solver.getIterationCount();
-    m << endl;
+        lhs = lhs - analytical;
+        T normError = norm(lhs) / norm(analytical);
 
-    IpplTimings::stopTimer(errorTimer);
+        m << std::setw(10) << numNodesPerDim;
+        m << std::setw(25) << std::setprecision(16) << cellSpacing[0];
+        m << std::setw(25) << std::setprecision(16) << relError;
+        m << std::setw(25) << std::setprecision(16) << normError;
+        m << std::setw(25) << std::setprecision(16) << solver.getResidue();
+        m << std::setw(15) << std::setprecision(16) << solver.getIterationCount();
+        m << endl;
+
+        ippl::parallel_for(
+        "Assign RHS", rhs.getFieldRangePolicy(), KOKKOS_LAMBDA(const index_array_type& args) {
+            ippl::Vector<int, Dim> iVec = args - numGhosts;
+            for (unsigned d = 0; d < Dim; ++d) {
+                iVec[d] += ldom[d].first();
+            }
+
+            const ippl::Vector<T, Dim> x = (iVec)*cellSpacing + origin;
+
+            apply(view_rhs, args) = sinusoidalRHSFunction<T, Dim>(x);
+        });
+    }
 }
 
 int main(int argc, char* argv[]) {

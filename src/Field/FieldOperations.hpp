@@ -62,6 +62,8 @@ namespace ippl {
     detail::meta_laplace<Field> laplace(Field& u) {
         constexpr unsigned Dim = Field::dim;
 
+	static IpplTimings::TimerRef bcs = IpplTimings::getTimer("laplace_BCs");
+	IpplTimings::startTimer(bcs);
         nvtxRangePush("fillHalo");
         u.fillHalo();
         nvtxRangePop();
@@ -69,6 +71,7 @@ namespace ippl {
         BConds<Field, Dim>& bcField = u.getFieldBC();
         bcField.apply(u);
         nvtxRangePop();
+	IpplTimings::stopTimer(bcs);
 
         nvtxRangePush("getMesh");
         using mesh_type = typename Field::Mesh_t;
