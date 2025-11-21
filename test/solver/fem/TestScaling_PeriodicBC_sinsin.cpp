@@ -107,10 +107,8 @@ void testFEMSolver(const unsigned& numNodesPerDim, const T& domain_start = 0.0,
 
     ippl::FieldLayout<Dim> layout(MPI_COMM_WORLD, domain, isParallel);
     Field_t lhs(mesh, layout, numGhosts);  // left hand side (updated in the algorithm)
-    Field_t rhs(mesh, layout, numGhosts);  // left hand side (updated in the algorithm)
-
-    Field_t analytical(mesh, layout, numGhosts);  // right hand side (set once)
-    auto view_analytical = analytical.getView();
+    Field_t rhs(mesh, layout, numGhosts);  // right hand side (updated - load vector)
+    Field_t rhs_store(mesh, layout, numGhosts); 
 
     // Define boundary conditions
     BConds_t bcField;
@@ -119,12 +117,11 @@ void testFEMSolver(const unsigned& numNodesPerDim, const T& domain_start = 0.0,
     }
     lhs.setFieldBC(bcField);
     rhs.setFieldBC(bcField);
+    rhs_store.setFieldBC(bcField);
 
     // set rhs
-    auto view_rhs = rhs.getView();
+    auto view_rhs = rhs_store.getView();
     auto ldom     = layout.getLocalNDIndex();
-
-    AnalyticSol<T, Dim> analytic;
 
     using index_array_type = typename ippl::RangePolicy<Dim>::index_array_type;
     ippl::parallel_for(
@@ -137,8 +134,9 @@ void testFEMSolver(const unsigned& numNodesPerDim, const T& domain_start = 0.0,
             const ippl::Vector<T, Dim> x = (iVec)*cellSpacing + origin;
 
             apply(view_rhs, args) = sinusoidalRHSFunction<T, Dim>(x);
-            apply(view_analytical, args) = analytic(x);
         });
+
+    rhs = rhs_store;
 
     IpplTimings::stopTimer(initTimer);
 
@@ -154,7 +152,7 @@ void testFEMSolver(const unsigned& numNodesPerDim, const T& domain_start = 0.0,
     // solve the problem
     // start the timer
     static IpplTimings::TimerRef solveTimer = IpplTimings::getTimer("solve");
-    for (int i = 0; i < 2; ++i) {
+    for (int i = 0; i < 5; ++i) {
 	    lhs = 0;
 
         IpplTimings::startTimer(solveTimer);
@@ -162,31 +160,17 @@ void testFEMSolver(const unsigned& numNodesPerDim, const T& domain_start = 0.0,
         IpplTimings::stopTimer(solveTimer);
 
         // Compute the error
+        AnalyticSol<T, Dim> analytic;
         const T relError = solver.getL2Error(analytic);
-
-        lhs = lhs - analytical;
-        T normError = norm(lhs) / norm(analytical);
 
         m << std::setw(10) << numNodesPerDim;
         m << std::setw(25) << std::setprecision(16) << cellSpacing[0];
         m << std::setw(25) << std::setprecision(16) << relError;
-        m << std::setw(25) << std::setprecision(16) << normError;
         m << std::setw(25) << std::setprecision(16) << solver.getResidue();
         m << std::setw(15) << std::setprecision(16) << solver.getIterationCount();
         m << endl;
 
-        rhs = 0;
-        ippl::parallel_for(
-        "Assign RHS", rhs.getFieldRangePolicy(), KOKKOS_LAMBDA(const index_array_type& args) {
-            ippl::Vector<int, Dim> iVec = args - numGhosts;
-            for (unsigned d = 0; d < Dim; ++d) {
-                iVec[d] += ldom[d].first();
-            }
-
-            const ippl::Vector<T, Dim> x = (iVec)*cellSpacing + origin;
-
-            apply(view_rhs, args) = sinusoidalRHSFunction<T, Dim>(x);
-        });
+        rhs = rhs_store;
     }
 }
 
