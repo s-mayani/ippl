@@ -17,10 +17,24 @@ namespace ippl {
 
         KOKKOS_FUNCTION auto operator()(
             const size_t& i, const size_t& j,
-            const Vector<Vector<Tlhs, Dim>, numElemDOFs>& grad_b_q_k) const {
+            const Vector<Vector<Tlhs, Dim>, numElemDOFs>& grad_b_q_k,
+            [[maybe_unused]] const Tlhs absDetDPhi_other,
+            [[maybe_unused]] const Vector<Tlhs, Dim>& DPhiInvT_other) const {
             return dot((DPhiInvT * grad_b_q_k[j]), (DPhiInvT * grad_b_q_k[i])).apply() * absDetDPhi;
         }
-};
+    };
+
+    template <typename Tlhs, unsigned Dim, unsigned numElemDOFs>
+    struct EvalFunctor_nonuniform {
+        Vector<Tlhs, Dim> DPhiInvT;
+        
+        KOKKOS_FUNCTION auto operator()(
+            const size_t& i, const size_t& j,
+            const Vector<Vector<Tlhs, Dim>, numElemDOFs>& grad_b_q_k, 
+            const Tlhs absDetDPhi, const Vector<Tlhs, Dim>& DPhiInvT) const {
+            return dot((DPhiInvT * grad_b_q_k[j]), (DPhiInvT * grad_b_q_k[i])).apply() * absDetDPhi;
+        }
+    };
 }
 
 #endif
