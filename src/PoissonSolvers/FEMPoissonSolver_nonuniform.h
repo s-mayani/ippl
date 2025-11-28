@@ -43,7 +43,7 @@ namespace ippl {
         using LagrangeType = LagrangeSpace<Tlhs, Dim, Order, ElementType, QuadratureType, FieldLHS, FieldRHS>;
 
         // default constructor (compatibility with Alpine)
-        FEMPoissonSolver() 
+        FEMPoissonSolver_nonuniform() 
             : Base()
             , refElement_m()
             , quadrature_m(refElement_m, 0.0, 0.0)
@@ -53,7 +53,7 @@ namespace ippl {
             setDefaultParameters();
         }
 
-        FEMPoissonSolver(lhs_type& lhs, rhs_type& rhs)
+        FEMPoissonSolver_nonuniform(lhs_type& lhs, rhs_type& rhs)
             : Base(lhs, rhs)
             , refElement_m()
             , quadrature_m(refElement_m, 0.0, 0.0)
