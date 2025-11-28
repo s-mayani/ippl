@@ -387,6 +387,7 @@ namespace ippl {
             }
         }
 
+        /*
         // Make local element matrix -- does not change through the element mesh
         // Element matrix
         Vector<Vector<T, numElementDOFs>, numElementDOFs> A_K;
@@ -400,6 +401,7 @@ namespace ippl {
                 }
             }
         }
+        */
 
         // Get field data and atomic result data,
         // since it will be added to during the kokkos loop
@@ -435,6 +437,13 @@ namespace ippl {
                 for (size_t i = 0; i < numElementDOFs; ++i) {
                     global_dof_ndindices[i] = this->getMeshVertexNDIndex(global_dofs[i]);
                 }
+
+                const auto vertexPoints = this->getElementMeshVertexPoints(
+                                            this->getElementNDIndex(elementIndex));
+                const T absDetDPhi = Kokkos::abs(
+                    this->ref_element_m.getDeterminantOfTransformationJacobian(vertexPoints));
+                const Vector<T, Dim> DPhiInvT = 
+                    this->ref_element_m.getInverseTransposeTransformationJacobian(vertexPoints);
 
                 // local DOF indices (both i and j go from 0 to numDOFs-1 in the element)
                 size_t i, j;
@@ -479,7 +488,12 @@ namespace ippl {
                             J_nd[d] = J_nd[d] - ldom[d].first() + nghost;
                         }
 
-                        apply(resultView, I_nd) += A_K[i][j] * apply(view, J_nd);
+                        T val_A = 0;
+                        for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
+                            val_A += w[k] * evalFunction(i, j, grad_b_q[k], absDetDPhi, DPhiInvT);
+                        }
+
+                        apply(resultView, I_nd) += val_A * apply(view, J_nd);
                     }
                 }
             });
@@ -537,6 +551,7 @@ namespace ippl {
             }
         }
 
+        /*
         // Make local element matrix -- does not change through the element mesh
         // Element matrix
         Vector<Vector<T, numElementDOFs>, numElementDOFs> A_K;
@@ -550,6 +565,7 @@ namespace ippl {
                 }
             }
         }
+        */
 
         // Get field data and atomic result data,
         // since it will be added to during the kokkos loop
@@ -580,6 +596,13 @@ namespace ippl {
                 for (size_t i = 0; i < numElementDOFs; ++i) {
                     global_dof_ndindices[i] = this->getMeshVertexNDIndex(global_dofs[i]);
                 }
+
+                const auto vertexPoints = this->getElementMeshVertexPoints(
+                                            this->getElementNDIndex(elementIndex));
+                const T absDetDPhi = Kokkos::abs(
+                    this->ref_element_m.getDeterminantOfTransformationJacobian(vertexPoints));
+                const Vector<T, Dim> DPhiInvT = 
+                    this->ref_element_m.getInverseTransposeTransformationJacobian(vertexPoints);
 
                 // local DOF indices
                 size_t i, j;
@@ -628,7 +651,12 @@ namespace ippl {
                             J_nd[d] = J_nd[d] - ldom[d].first() + nghost;
                         }
 
-                        apply(resultView, I_nd) += A_K[i][j] * apply(view, J_nd);
+                        T val_A = 0;
+                        for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
+                            val_A += w[k] * evalFunction(i, j, grad_b_q[k], absDetDPhi, DPhiInvT);
+                        }
+
+                        apply(resultView, I_nd) += val_A * apply(view, J_nd);
                     }
                 }
             });
@@ -679,6 +707,7 @@ namespace ippl {
             }
         }
 
+        /*
         // Make local element matrix -- does not change through the element mesh
         // Element matrix
         Vector<Vector<T, numElementDOFs>, numElementDOFs> A_K;
@@ -692,6 +721,7 @@ namespace ippl {
                 }
             }
         }
+        */
 
         // Get field data and atomic result data,
         // since it will be added to during the kokkos loop
@@ -722,6 +752,13 @@ namespace ippl {
                 for (size_t i = 0; i < numElementDOFs; ++i) {
                     global_dof_ndindices[i] = this->getMeshVertexNDIndex(global_dofs[i]);
                 }
+
+                const auto vertexPoints = this->getElementMeshVertexPoints(
+                                            this->getElementNDIndex(elementIndex));
+                const T absDetDPhi = Kokkos::abs(
+                    this->ref_element_m.getDeterminantOfTransformationJacobian(vertexPoints));
+                const Vector<T, Dim> DPhiInvT = 
+                    this->ref_element_m.getInverseTransposeTransformationJacobian(vertexPoints);
 
                 // local DOF indices
                 size_t i, j;
@@ -770,7 +807,12 @@ namespace ippl {
                             J_nd[d] = J_nd[d] - ldom[d].first() + nghost;
                         }
 
-                        apply(resultView, I_nd) += A_K[i][j] * apply(view, J_nd);
+                        T val_A = 0;
+                        for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
+                            val_A += w[k] * evalFunction(i, j, grad_b_q[k], absDetDPhi, DPhiInvT);
+                        }
+
+                        apply(resultView, I_nd) += val_A * apply(view, J_nd);
                     }
                 }
             });
@@ -821,6 +863,7 @@ namespace ippl {
             }
         }
 
+        /*
         // Make local element matrix -- does not change through the element mesh
         // Element matrix
         Vector<Vector<T, numElementDOFs>, numElementDOFs> A_K;
@@ -834,6 +877,7 @@ namespace ippl {
                 }
             }
         }
+        */
 
         // Get field data and atomic result data,
         // since it will be added to during the kokkos loop
@@ -864,6 +908,13 @@ namespace ippl {
                 for (size_t i = 0; i < numElementDOFs; ++i) {
                     global_dof_ndindices[i] = this->getMeshVertexNDIndex(global_dofs[i]);
                 }
+
+                const auto vertexPoints = this->getElementMeshVertexPoints(
+                                            this->getElementNDIndex(elementIndex));
+                const T absDetDPhi = Kokkos::abs(
+                    this->ref_element_m.getDeterminantOfTransformationJacobian(vertexPoints));
+                const Vector<T, Dim> DPhiInvT = 
+                    this->ref_element_m.getInverseTransposeTransformationJacobian(vertexPoints);
 
                 // local DOF indices
                 size_t i, j;
@@ -908,8 +959,15 @@ namespace ippl {
                             J_nd[d] = J_nd[d] - ldom[d].first() + nghost;
                         }
 
-                        apply(resultView, I_nd) += A_K[i][j] * apply(view, J_nd);
-                        apply(resultView, J_nd) += A_K[j][i] * apply(view, I_nd);
+                        T val_A = 0;
+                        T val_A_T = 0;
+                        for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
+                            val_A += w[k] * evalFunction(i, j, grad_b_q[k], absDetDPhi, DPhiInvT);
+                            val_A_T += w[k] * evalFunction(j, i, grad_b_q[k], absDetDPhi, DPhiInvT);
+                        }
+
+                        apply(resultView, I_nd) += val_A * apply(view, J_nd);
+                        apply(resultView, J_nd) += val_A_T * apply(view, I_nd);
                     }
                 }
             });
@@ -960,6 +1018,7 @@ namespace ippl {
             }
         }
 
+        /*
         // Make local element matrix -- does not change through the element mesh
         // Element matrix
         Vector<T, numElementDOFs> A_K_diag;
@@ -971,6 +1030,7 @@ namespace ippl {
                 A_K_diag[i] += w[k] * evalFunction(i, i, grad_b_q[k]);
             }
         }
+        */
 
         // Get field data and atomic result data,
         // since it will be added to during the kokkos loop
@@ -1002,6 +1062,13 @@ namespace ippl {
                     global_dof_ndindices[i] = this->getMeshVertexNDIndex(global_dofs[i]);
                 }
 
+                const auto vertexPoints = this->getElementMeshVertexPoints(
+                                            this->getElementNDIndex(elementIndex));
+                const T absDetDPhi = Kokkos::abs(
+                    this->ref_element_m.getDeterminantOfTransformationJacobian(vertexPoints));
+                const Vector<T, Dim> DPhiInvT = 
+                    this->ref_element_m.getInverseTransposeTransformationJacobian(vertexPoints);
+
                 // local DOF indices
                 size_t i;
 
@@ -1030,8 +1097,14 @@ namespace ippl {
                     for (unsigned d = 0; d < Dim; ++d) {
                         I_nd[d] = I_nd[d] - ldom[d].first() + nghost;
                     }
+
+                    T val_A = 0;
+                    for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
+                        val_A += w[k] * evalFunction(i, i, grad_b_q[k], absDetDPhi, DPhiInvT);
+                    }
+
                     // sum up all contributions of element matrix
-                    apply(resultView, I_nd) += A_K_diag[i];
+                    apply(resultView, I_nd) += val_A;
                 }
             });
 
@@ -1089,6 +1162,7 @@ namespace ippl {
             }
         }
 
+        /*
         // Make local element matrix -- does not change through the element mesh
         // Element matrix
         Vector<T, numElementDOFs> A_K_diag;
@@ -1100,6 +1174,7 @@ namespace ippl {
                 A_K_diag[i] += w[k] * evalFunction(i, i, grad_b_q[k]);
             }
         }
+        */
 
         // Get field data and atomic result data,
         // since it will be added to during the kokkos loop
@@ -1131,6 +1206,13 @@ namespace ippl {
                     global_dof_ndindices[i] = this->getMeshVertexNDIndex(global_dofs[i]);
                 }
 
+                const auto vertexPoints = this->getElementMeshVertexPoints(
+                                            this->getElementNDIndex(elementIndex));
+                const T absDetDPhi = Kokkos::abs(
+                    this->ref_element_m.getDeterminantOfTransformationJacobian(vertexPoints));
+                const Vector<T, Dim> DPhiInvT = 
+                    this->ref_element_m.getInverseTransposeTransformationJacobian(vertexPoints);
+
                 // local DOF indices
                 size_t i;
 
@@ -1159,7 +1241,13 @@ namespace ippl {
                     for (unsigned d = 0; d < Dim; ++d) {
                         I_nd[d] = I_nd[d] - ldom[d].first() + nghost;
                     }
-                    apply(resultView, I_nd) += A_K_diag[i] * apply(view, I_nd);
+
+                    T val_A = 0;
+                    for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
+                        val_A += w[k] * evalFunction(i, i, grad_b_q[k], absDetDPhi, DPhiInvT);
+                    }
+
+                    apply(resultView, I_nd) += val_A * apply(view, I_nd);
                 }
             });
 
@@ -1209,6 +1297,7 @@ namespace ippl {
             }
         }
 
+        /*
         // Make local element matrix -- does not change through the element mesh
         // Element matrix
         Vector<Vector<T, numElementDOFs>, numElementDOFs> A_K;
@@ -1222,6 +1311,7 @@ namespace ippl {
                 }
             }
         }
+        */
 
         // Get field data and atomic result data,
         // since it will be added to during the kokkos loop
@@ -1248,6 +1338,13 @@ namespace ippl {
                 for (size_t i = 0; i < numElementDOFs; ++i) {
                     global_dof_ndindices[i] = this->getMeshVertexNDIndex(global_dofs[i]);
                 }
+
+                const auto vertexPoints = this->getElementMeshVertexPoints(
+                                            this->getElementNDIndex(elementIndex));
+                const T absDetDPhi = Kokkos::abs(
+                    this->ref_element_m.getDeterminantOfTransformationJacobian(vertexPoints));
+                const Vector<T, Dim> DPhiInvT = 
+                    this->ref_element_m.getInverseTransposeTransformationJacobian(vertexPoints);
 
                 // local DOF indices (both i and j go from 0 to numDOFs-1 in the element)
                 size_t i, j;
@@ -1279,7 +1376,13 @@ namespace ippl {
                             for (unsigned d = 0; d < Dim; ++d) {
                                 J_nd[d] = J_nd[d] - ldom[d].first() + nghost;
                             }
-                            apply(resultView, I_nd) += A_K[i][j] * apply(view, J_nd);
+
+                            T val_A = 0;
+                            for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
+                                val_A += w[k] * evalFunction(i, j, grad_b_q[k], absDetDPhi, DPhiInvT);
+                            }
+
+                            apply(resultView, I_nd) += val_A * apply(view, J_nd);
                             continue;
                         }
 
@@ -1323,10 +1426,6 @@ namespace ippl {
             }
         }
 
-        // Absolute value of det Phi_K
-        const T absDetDPhi = Kokkos::abs(this->ref_element_m.getDeterminantOfTransformationJacobian(
-            this->getElementMeshVertexPoints(zeroNdIndex)));
-
         // Get domain information and ghost cells
         auto ldom        = (field.getLayout()).getLocalNDIndex();
         const int nghost = field.getNghost();
@@ -1354,6 +1453,9 @@ namespace ippl {
                 const size_t elementIndex                        = elementIndices(index);
                 const Vector<size_t, numElementDOFs> global_dofs =
                     this->LagrangeSpace::getGlobalDOFIndices(elementIndex);
+
+                T absDetDPhi = Kokkos::abs(this->ref_element_m.getDeterminantOfTransformationJacobian(
+                               this->getElementMeshVertexPoints(this->getElementNDIndex(elementIndex))));
 
                 size_t i, I;
 
@@ -1427,8 +1529,6 @@ namespace ippl {
         const Vector<point_t, QuadratureType::numElementNodes> q =
             this->quadrature_m.getIntegrationNodesForRefElement();
 
-        const indices_t zeroNdIndex = Vector<size_t, Dim>(0);
-
         // Evaluate the basis functions for the DOF at the quadrature nodes
         Vector<Vector<T, numElementDOFs>, QuadratureType::numElementNodes> basis_q;
         for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
@@ -1436,10 +1536,6 @@ namespace ippl {
                 basis_q[k][i] = this->evaluateRefElementShapeFunction(i, q[k]);
             }
         }
-
-        // Absolute value of det Phi_K
-        const T absDetDPhi = Kokkos::abs(this->ref_element_m.getDeterminantOfTransformationJacobian(
-            this->getElementMeshVertexPoints(zeroNdIndex)));
 
         // Get field data and make it atomic,
         // since it will be added to during the kokkos loop
@@ -1459,6 +1555,9 @@ namespace ippl {
                 const size_t elementIndex                        = elementIndices(index);
                 const Vector<size_t, numElementDOFs> global_dofs =
                     this->LagrangeSpace::getGlobalDOFIndices(elementIndex);
+
+                T absDetDPhi = Kokkos::abs(this->ref_element_m.getDeterminantOfTransformationJacobian(
+                               this->getElementMeshVertexPoints(this->getElementNDIndex(elementIndex))));
 
                 size_t i, I;
 
@@ -1516,12 +1615,6 @@ namespace ippl {
             }
         }
 
-        const indices_t zeroNdIndex = Vector<size_t, Dim>(0);
-
-        // Absolute value of det Phi_K
-        const T absDetDPhi = Kokkos::abs(this->ref_element_m.getDeterminantOfTransformationJacobian(
-            this->getElementMeshVertexPoints(zeroNdIndex)));
-
         // Variable to sum the error to
         T error = 0;
 
@@ -1539,6 +1632,9 @@ namespace ippl {
                 const size_t elementIndex = elementIndices(index);
                 const Vector<size_t, numElementDOFs> global_dofs =
                     this->LagrangeSpace::getGlobalDOFIndices(elementIndex);
+
+                T absDetDPhi = Kokkos::abs(this->ref_element_m.getDeterminantOfTransformationJacobian(
+                               this->getElementMeshVertexPoints(this->getElementNDIndex(elementIndex))));
 
                 // contribution of this element to the error
                 T contrib = 0;
@@ -1600,12 +1696,6 @@ namespace ippl {
             }
         }
 
-        const indices_t zeroNdIndex = Vector<size_t, Dim>(0);
-
-        // Absolute value of det Phi_K
-        const T absDetDPhi = Kokkos::abs(this->ref_element_m.getDeterminantOfTransformationJacobian(
-            this->getElementMeshVertexPoints(zeroNdIndex)));
-
         // Variable to sum the error to
         T avg = 0;
 
@@ -1623,6 +1713,9 @@ namespace ippl {
                 const size_t elementIndex = elementIndices(index);
                 const Vector<size_t, numElementDOFs> global_dofs =
                     this->LagrangeSpace::getGlobalDOFIndices(elementIndex);
+
+                T absDetDPhi = Kokkos::abs(this->ref_element_m.getDeterminantOfTransformationJacobian(
+                               this->getElementMeshVertexPoints(this->getElementNDIndex(elementIndex))));
 
                 // contribution of this element to the error
                 T contrib = 0;
