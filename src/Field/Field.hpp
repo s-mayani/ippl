@@ -58,8 +58,18 @@ namespace ippl {
 
     template <class T, unsigned Dim, class Mesh, class Centering, class... ViewArgs>
     T Field<T, Dim, Mesh, Centering, ViewArgs...>::getVolumeIntegral() const {
-        typename Mesh::value_type dV = mesh_m->getCellVolume();
-        return this->sum() * dV;
+        // General implementation which also works for non-uniform meshes
+        T temp = 0;
+        ippl::parallel_reduce(
+            "volumeIntegral", getRangePolicy(dview_m, nghost_m),
+                KOKKOS_CLASS_LAMBDA(const index_array_type& args, T& valL) {
+                    T myVal = apply(dview_m, args);
+                    valL += myVal * mesh_m->getCellVolume(args);
+                },
+            Kokkos::Sum<T>(temp));
+        T globaltemp = 0.0;
+        layout_m->comm.allreduce(temp, globaltemp, 1, std::plus<T>());
+        return globaltemp;                                                                     
     }
 
     template <class T, unsigned Dim, class Mesh, class Centering, class... ViewArgs>
