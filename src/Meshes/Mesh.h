@@ -38,7 +38,7 @@ namespace ippl {
          * Query the cell volume of the grid
          * @return The volume of a single mesh cell
          */
-        KOKKOS_INLINE_FUNCTION virtual T getCellVolume() const = 0;
+        KOKKOS_INLINE_FUNCTION virtual T getCellVolume(const NDIndex<Dim>&) const = 0;
 
         /*!
          * Query the volume of the represented domain
@@ -51,7 +51,7 @@ namespace ippl {
         KOKKOS_INLINE_FUNCTION virtual vector_type getVertexPosition(
             const NDIndex<Dim>& ndi) const = 0;
 
-        KOKKOS_INLINE_FUNCTION virtual const vector_type& getMeshSpacing() const = 0;
+        //KOKKOS_INLINE_FUNCTION virtual const vector_type& getMeshSpacing() const = 0;
 
         KOKKOS_INLINE_FUNCTION virtual vector_type getDeltaVertex(
             const NDIndex<Dim>& ndi) const = 0;

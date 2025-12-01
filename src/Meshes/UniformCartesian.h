@@ -32,9 +32,9 @@ namespace ippl {
         // Get the spacings of mesh vertex positions along specified direction
         KOKKOS_INLINE_FUNCTION T getMeshSpacing(unsigned dim) const;
 
-        KOKKOS_INLINE_FUNCTION const vector_type& getMeshSpacing() const override;
+        KOKKOS_INLINE_FUNCTION const vector_type& getMeshSpacing() const;
 
-        KOKKOS_INLINE_FUNCTION T getCellVolume() const override;
+        KOKKOS_INLINE_FUNCTION T getCellVolume([[maybe_unused]] const NDIndex<Dim>& ndi = 0) const override;
 
         KOKKOS_INLINE_FUNCTION T getMeshVolume() const override;
 

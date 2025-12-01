@@ -57,7 +57,8 @@ namespace ippl {
     }
 
     template <typename T, unsigned Dim>
-    KOKKOS_INLINE_FUNCTION T UniformCartesian<T, Dim>::getCellVolume() const {
+    KOKKOS_INLINE_FUNCTION T UniformCartesian<T, Dim>::getCellVolume([[maybe_unused]]
+                                                       const NDIndex<Dim>& ndi) const {
         return volume_m;
     }
 
