@@ -35,7 +35,8 @@ namespace ippl {
 
         KOKKOS_INLINE_FUNCTION const vector_type& getMeshSpacing() const;
 
-        KOKKOS_INLINE_FUNCTION T getCellVolume([[maybe_unused]] index_array_type& args = 0) const override;
+        KOKKOS_INLINE_FUNCTION T getCellVolume([[maybe_unused]] const index_array_type& args = 0) 
+            const override;
 
         KOKKOS_INLINE_FUNCTION T getMeshVolume() const override;
 

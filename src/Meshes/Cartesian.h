@@ -31,7 +31,7 @@ namespace ippl {
 
         KOKKOS_INLINE_FUNCTION const Vector<Kokkos::View<T*>, Dim>& getMeshSpacing() const;
 
-        KOKKOS_INLINE_FUNCTION T getCellVolume(index_array_type& args) const override;
+        KOKKOS_INLINE_FUNCTION T getCellVolume(const index_array_type& args) const override;
 
         KOKKOS_INLINE_FUNCTION T getMeshVolume() const override;
 
@@ -75,7 +75,7 @@ namespace ippl {
             return vertexVertexSpacing;
         }
 
-        KOKKOS_INLINE_FUNCTION size_t index_to_cell(index_array_type& args) const;
+        KOKKOS_INLINE_FUNCTION size_t index_to_cell(const index_array_type& args) const;
 
     private:
         Vector<Kokkos::View<T*>, Dim> meshSpacing_m;  // delta-x, delta-y (>1D), delta-z (>2D)

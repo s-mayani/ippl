@@ -81,7 +81,7 @@ namespace ippl {
     }
 
     template <typename T, unsigned Dim>
-    KOKKOS_INLINE_FUNCTION T Cartesian<T, Dim>::getCellVolume(Cartesian<T, Dim>::index_array_type& args)
+    KOKKOS_INLINE_FUNCTION T Cartesian<T, Dim>::getCellVolume(const Cartesian<T, Dim>::index_array_type& args)
     const {
         size_t cell = index_to_cell(args);
         return volume_m(cell);
@@ -119,7 +119,7 @@ namespace ippl {
     }
 
     template <typename T, unsigned Dim>
-    KOKKOS_INLINE_FUNCTION size_t Cartesian<T, Dim>::index_to_cell(Cartesian<T, Dim>::index_array_type& args)
+    KOKKOS_INLINE_FUNCTION size_t Cartesian<T, Dim>::index_to_cell(const Cartesian<T, Dim>::index_array_type& args)
     const {
         size_t cell = 0;
         Vector<size_t, Dim> cells_per_dim = this->gridSizes_m - 1;

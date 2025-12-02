@@ -39,7 +39,7 @@ namespace ippl {
          * Query the cell volume of the grid
          * @return The volume of a single mesh cell
          */
-        KOKKOS_INLINE_FUNCTION virtual T getCellVolume(index_array_type& args) const = 0;
+        KOKKOS_INLINE_FUNCTION virtual T getCellVolume(const index_array_type& args) const = 0;
 
         /*!
          * Query the volume of the represented domain
