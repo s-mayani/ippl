@@ -15,12 +15,13 @@ namespace ippl {
         : Mesh<T, Dim>() {}
 
     template <typename T, unsigned Dim>
-    KOKKOS_INLINE_FUNCTION Cartesian<T, Dim>::Cartesian(const NDIndex<Dim>& ndi, const vector_type& origin) {
-        this->initialize(ndi, origin);
+    KOKKOS_INLINE_FUNCTION Cartesian<T, Dim>::Cartesian(Vector<Kokkos::View<T*>, Dim>& spacings,
+                                                        const vector_type& origin) {
+        this->initialize(spacings, origin);
     }
 
     template <typename T, unsigned Dim>
-    KOKKOS_INLINE_FUNCTION void Cartesian<T, Dim>::initialize(const NDIndex<Dim>& ndi,
+    KOKKOS_INLINE_FUNCTION void Cartesian<T, Dim>::initialize(Vector<Kokkos::View<T*>, Dim>& spacings,
         const vector_type& origin) {
 
         int size_vol = 1;
@@ -28,19 +29,15 @@ namespace ippl {
         using exec_space  = typename Kokkos::View<const size_t*>::execution_space;
         using policy_type = Kokkos::RangePolicy<exec_space>;
 
-        // set mesh spacing
+        // set gridsizes
+        // calculate volume size
         for (unsigned d = 0; d < Dim; ++d) {
-            // set gridsizes
-            this->gridSizes_m[d] = ndi[d].length();
+            this->gridSizes_m[d] = spacings[d].extent(0);
             size_vol *= (this->gridSizes_m[d] - 1);
-
-            meshSpacing_m[d] = Kokkos::View<T*>("meshSpacing", this->gridSizes_m[d]);
-
-            Kokkos::parallel_for("set_spacing", policy_type(0, this->gridSizes_m[d]), 
-                KOKKOS_LAMBDA(unsigned int i) {
-                    meshSpacing_m[d](i) = ndi[d].stride();
-            });
         }
+
+        // set mesh spacing
+        meshSpacing_m = spacings;
 
         // volume computation
         volume_m = Kokkos::View<T*>("volume", size_vol);
@@ -58,36 +55,27 @@ namespace ippl {
     }
 
     template <typename T, unsigned Dim>
-    KOKKOS_INLINE_FUNCTION void Cartesian<T, Dim>::setMeshSpacing(
-        const NDIndex<Dim>& ndi) {
-
-        using exec_space  = typename Kokkos::View<const size_t*>::execution_space;
-        using policy_type = Kokkos::RangePolicy<exec_space>;
-
-        // assume that ndi still maintains gridSize of before
+    KOKKOS_INLINE_FUNCTION void Cartesian<T, Dim>::setMeshSpacing(Vector<Kokkos::View<T*>, Dim>& spacings) {
+        // assume that it still maintains gridSize of before
         for (unsigned d = 0; d < Dim; ++d) {
-            if (this->gridSizes_m[d] != ndi[d].length()) {
+            if (this->gridSizes_m[d] != spacings[d].extent(0)) {
                 std::cout << "Was not able to change mesh spacing, length does not match initial domain!" << std::endl;
                 return;
             }
-            Kokkos::parallel_for("set_spacing", policy_type(0, this->gridSizes_m[d]), 
-                KOKKOS_LAMBDA(unsigned int i) {
-                    meshSpacing_m[d](i) = ndi[d].stride();
-            });
         }
 
+        meshSpacing_m = spacings;
         this->updateCellVolume_m();
     }
 
     template <typename T, unsigned Dim>
-    KOKKOS_INLINE_FUNCTION typename Cartesian<T, Dim>::view_type Cartesian<T, Dim>::
-                                                getMeshSpacing(unsigned dim) const {
+    KOKKOS_INLINE_FUNCTION typename Kokkos::View<T*> Cartesian<T, Dim>::getMeshSpacing(unsigned dim) const {
         PAssert_LT(dim, Dim);
         return meshSpacing_m[dim];
     }
 
     template <typename T, unsigned Dim>
-    KOKKOS_INLINE_FUNCTION const Vector<typename Cartesian<T, Dim>::view_type, Dim>&
+    KOKKOS_INLINE_FUNCTION const Vector<Kokkos::View<T*>, Dim>&
     Cartesian<T, Dim>::getMeshSpacing() const {
         return meshSpacing_m;
     }

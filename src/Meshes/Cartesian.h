@@ -14,22 +14,21 @@ namespace ippl {
     class Cartesian : public Mesh<T, Dim> {
     public:
         typedef typename Mesh<T, Dim>::vector_type vector_type;
-        typedef Kokkos::View<T*> view_type;
         typedef Cell DefaultCentering;
 
         KOKKOS_INLINE_FUNCTION Cartesian();
 
-        KOKKOS_INLINE_FUNCTION Cartesian(const NDIndex<Dim>& ndi, const vector_type& origin);
+        KOKKOS_INLINE_FUNCTION Cartesian(Vector<Kokkos::View<T*>, Dim>& spacings, const vector_type& origin);
 
         KOKKOS_INLINE_FUNCTION ~Cartesian() = default;
 
-        KOKKOS_INLINE_FUNCTION void initialize(const NDIndex<Dim>& ndii, const vector_type& origin);
+        KOKKOS_INLINE_FUNCTION void initialize(Vector<Kokkos::View<T*>, Dim>& spacings, const vector_type& origin);
 
-        KOKKOS_INLINE_FUNCTION void setMeshSpacing(const NDIndex<Dim>& ndi);
+        KOKKOS_INLINE_FUNCTION void setMeshSpacing(Vector<Kokkos::View<T*>, Dim>& spacings);
 
-        KOKKOS_INLINE_FUNCTION view_type getMeshSpacing(unsigned dim) const;
+        KOKKOS_INLINE_FUNCTION Kokkos::View<T*> getMeshSpacing(unsigned dim) const;
 
-        KOKKOS_INLINE_FUNCTION const Vector<view_type, Dim>& getMeshSpacing() const;
+        KOKKOS_INLINE_FUNCTION const Vector<Kokkos::View<T*>, Dim>& getMeshSpacing() const;
 
         KOKKOS_INLINE_FUNCTION T getCellVolume(const NDIndex<Dim>&) const override;
 
@@ -40,7 +39,7 @@ namespace ippl {
         // (x,y,z) coordinates of indexed vertex:
         KOKKOS_INLINE_FUNCTION vector_type
         getVertexPosition(const NDIndex<Dim>& ndi) const override {
-            using exec_space  = typename Kokkos::View<const size_t*>::execution_space;
+            using exec_space  = typename Kokkos::View<T*>::execution_space;
             using policy_type = Kokkos::RangePolicy<exec_space>;
 
             vector_type vertexPosition;
@@ -58,7 +57,7 @@ namespace ippl {
 
         // Vertex-vertex grid spacing of indexed cell:
         KOKKOS_INLINE_FUNCTION vector_type getDeltaVertex(const NDIndex<Dim>& ndi) const override {
-            using exec_space  = typename Kokkos::View<const size_t*>::execution_space;
+            using exec_space  = typename Kokkos::View<T*>::execution_space;
             using policy_type = Kokkos::RangePolicy<exec_space>;
 
             vector_type vertexVertexSpacing;
@@ -78,8 +77,8 @@ namespace ippl {
         KOKKOS_INLINE_FUNCTION size_t ndindex_to_cell(const NDIndex<Dim>& ndi) const;
 
     private:
-        Vector<view_type, Dim> meshSpacing_m;  // delta-x, delta-y (>1D), delta-z (>2D)
-        view_type volume_m;                    // Cell length(1D), area(2D), or volume (>2D)
+        Vector<Kokkos::View<T*>, Dim> meshSpacing_m;  // delta-x, delta-y (>1D), delta-z (>2D)
+        Kokkos::View<T*> volume_m;                    // Cell length(1D), area(2D), or volume (>2D)
     };
 
 }  // namespace ippl
