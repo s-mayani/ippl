@@ -204,12 +204,13 @@ namespace ippl {
         T min(int nghost = 0) const;
         T prod(int nghost = 0) const;
 
+    protected:
+        //! Actual field data
+        view_type dview_m;
+
     private:
         //! Number of ghost layers on each field boundary
         int nghost_m;
-
-        //! Actual field data
-        view_type dview_m;
 
         //! Domain of the data
         Domain_t owned_m;
