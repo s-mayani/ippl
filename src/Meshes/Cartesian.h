@@ -47,7 +47,7 @@ namespace ippl {
             for (unsigned int d = 0; d < Dim; d++) {
                 unsigned int idx = ndi[d].first();
                 T distance = 0;
-                ippl::parallel_reduce("sum spacings", policy_type(0, idx),
+                Kokkos::parallel_reduce("sum spacings", policy_type(0, idx),
                     KOKKOS_LAMBDA(unsigned int i, T& resultLocal) {
                         resultLocal += meshSpacing_m[d](i);
                 }, Kokkos::Sum<T>(distance));
@@ -66,7 +66,7 @@ namespace ippl {
                 unsigned int i0 = ndi[d].first();
                 unsigned int i1 = ndi[d].last();
                 T distance = 0;
-                ippl::parallel_reduce("sum spacings", policy_type(i0, i1),
+                Kokkos::parallel_reduce("sum spacings", policy_type(i0, i1),
                     KOKKOS_LAMBDA(unsigned int i, T& resultLocal) {
                         resultLocal += meshSpacing_m[d](i);
                 }, Kokkos::Sum<T>(distance));
