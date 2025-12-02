@@ -21,6 +21,7 @@ namespace ippl {
 
         typedef Vector<T, Dim> vector_type;
         typedef Vector<vector_type, Dim> matrix_type;
+        using index_array_type = typename RangePolicy<Dim>::index_array_type;
 
         KOKKOS_INLINE_FUNCTION Mesh(){};
 
@@ -38,7 +39,7 @@ namespace ippl {
          * Query the cell volume of the grid
          * @return The volume of a single mesh cell
          */
-        KOKKOS_INLINE_FUNCTION virtual T getCellVolume(const NDIndex<Dim>&) const = 0;
+        KOKKOS_INLINE_FUNCTION virtual T getCellVolume(index_array_type& args) const = 0;
 
         /*!
          * Query the volume of the represented domain

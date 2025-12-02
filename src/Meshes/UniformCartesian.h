@@ -15,6 +15,7 @@ namespace ippl {
     public:
         typedef typename Mesh<T, Dim>::vector_type vector_type;
         typedef Cell DefaultCentering;
+        using index_array_type = typename RangePolicy<Dim>::index_array_type;
 
         KOKKOS_INLINE_FUNCTION UniformCartesian();
 
@@ -34,7 +35,7 @@ namespace ippl {
 
         KOKKOS_INLINE_FUNCTION const vector_type& getMeshSpacing() const;
 
-        KOKKOS_INLINE_FUNCTION T getCellVolume([[maybe_unused]] const NDIndex<Dim>& ndi = 0) const override;
+        KOKKOS_INLINE_FUNCTION T getCellVolume([[maybe_unused]] index_array_type& args = 0) const override;
 
         KOKKOS_INLINE_FUNCTION T getMeshVolume() const override;
 

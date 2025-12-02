@@ -15,6 +15,7 @@ namespace ippl {
     public:
         typedef typename Mesh<T, Dim>::vector_type vector_type;
         typedef Cell DefaultCentering;
+        using index_array_type = typename RangePolicy<Dim>::index_array_type;
 
         KOKKOS_INLINE_FUNCTION Cartesian();
 
@@ -30,7 +31,7 @@ namespace ippl {
 
         KOKKOS_INLINE_FUNCTION const Vector<Kokkos::View<T*>, Dim>& getMeshSpacing() const;
 
-        KOKKOS_INLINE_FUNCTION T getCellVolume(const NDIndex<Dim>&) const override;
+        KOKKOS_INLINE_FUNCTION T getCellVolume(index_array_type& args) const override;
 
         KOKKOS_INLINE_FUNCTION T getMeshVolume() const override;
 
@@ -49,7 +50,7 @@ namespace ippl {
                 ippl::parallel_reduce("sum spacings", policy_type(0, idx),
                     KOKKOS_LAMBDA(unsigned int i, T& resultLocal) {
                         resultLocal += meshSpacing_m[d](i);
-                }, Kokkos::Sum(distance));
+                }, Kokkos::Sum<T>(distance));
                 vertexPosition(d) = distance + this->origin_m(d);
             }
             return vertexPosition;
@@ -68,13 +69,13 @@ namespace ippl {
                 ippl::parallel_reduce("sum spacings", policy_type(i0, i1),
                     KOKKOS_LAMBDA(unsigned int i, T& resultLocal) {
                         resultLocal += meshSpacing_m[d](i);
-                }, Kokkos::Sum(distance));
+                }, Kokkos::Sum<T>(distance));
                 vertexVertexSpacing[d] = distance;
             }
             return vertexVertexSpacing;
         }
 
-        KOKKOS_INLINE_FUNCTION size_t ndindex_to_cell(const NDIndex<Dim>& ndi) const;
+        KOKKOS_INLINE_FUNCTION size_t index_to_cell(index_array_type& args) const;
 
     private:
         Vector<Kokkos::View<T*>, Dim> meshSpacing_m;  // delta-x, delta-y (>1D), delta-z (>2D)
