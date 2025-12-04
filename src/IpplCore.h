@@ -50,6 +50,7 @@
 
 // // FEM Spaces
 #include "FEM/LagrangeSpace.h"
+#include "FEM/LagrangeSpace_nonuniform.h"
 #include "FEM/NedelecSpace.h"
 
 // // FEM Vector

@@ -9,10 +9,11 @@
 
 #include "FEM/FiniteElementSpace_nonuniform.h"
 
+/* Comment out as redefined
 constexpr unsigned getLagrangeNumElementDOFs(unsigned Dim, unsigned Order) {
     // needs to be constexpr pow function to work at compile time. Kokkos::pow doesn't work.
     return static_cast<unsigned>(power(static_cast<int>(Order + 1), static_cast<int>(Dim)));
-}
+}*/ 
 
 namespace ippl {
 
@@ -282,7 +283,7 @@ namespace ippl {
         struct DeviceStruct {
             // members we need to copy for the following functions:
             // works since numElementDOFs in LagrangeSpace is static constexpr
-            static constexpr unsigned numElementDOFs = LagrangeSpace::numElementDOFs;
+            static constexpr unsigned numElementDOFs = LagrangeSpace_nonuniform::numElementDOFs;
             Vector<size_t, Dim> nr_m;
             ElementType ref_element_m;
 

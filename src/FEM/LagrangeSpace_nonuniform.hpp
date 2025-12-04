@@ -387,22 +387,6 @@ namespace ippl {
             }
         }
 
-        /*
-        // Make local element matrix -- does not change through the element mesh
-        // Element matrix
-        Vector<Vector<T, numElementDOFs>, numElementDOFs> A_K;
-
-        // 1. Compute the Galerkin element matrix A_K
-        for (size_t i = 0; i < numElementDOFs; ++i) {
-            for (size_t j = 0; j < numElementDOFs; ++j) {
-                A_K[i][j] = 0.0;
-                for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
-                    A_K[i][j] += w[k] * evalFunction(i, j, grad_b_q[k]);
-                }
-            }
-        }
-        */
-
         // Get field data and atomic result data,
         // since it will be added to during the kokkos loop
         ViewType view             = field.getView();
@@ -551,22 +535,6 @@ namespace ippl {
             }
         }
 
-        /*
-        // Make local element matrix -- does not change through the element mesh
-        // Element matrix
-        Vector<Vector<T, numElementDOFs>, numElementDOFs> A_K;
-
-        // 1. Compute the Galerkin element matrix A_K
-        for (size_t i = 0; i < numElementDOFs; ++i) {
-            for (size_t j = 0; j < numElementDOFs; ++j) {
-                A_K[i][j] = 0.0;
-                for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
-                    A_K[i][j] += w[k] * evalFunction(i, j, grad_b_q[k]);
-                }
-            }
-        }
-        */
-
         // Get field data and atomic result data,
         // since it will be added to during the kokkos loop
         ViewType view             = field.getView();
@@ -706,22 +674,6 @@ namespace ippl {
                 grad_b_q[k][i] = this->evaluateRefElementShapeFunctionGradient(i, q[k]);
             }
         }
-
-        /*
-        // Make local element matrix -- does not change through the element mesh
-        // Element matrix
-        Vector<Vector<T, numElementDOFs>, numElementDOFs> A_K;
-
-        // 1. Compute the Galerkin element matrix A_K
-        for (size_t i = 0; i < numElementDOFs; ++i) {
-            for (size_t j = 0; j < numElementDOFs; ++j) {
-                A_K[i][j] = 0.0;
-                for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
-                    A_K[i][j] += w[k] * evalFunction(i, j, grad_b_q[k]);
-                }
-            }
-        }
-        */
 
         // Get field data and atomic result data,
         // since it will be added to during the kokkos loop
@@ -863,22 +815,6 @@ namespace ippl {
             }
         }
 
-        /*
-        // Make local element matrix -- does not change through the element mesh
-        // Element matrix
-        Vector<Vector<T, numElementDOFs>, numElementDOFs> A_K;
-
-        // 1. Compute the Galerkin element matrix A_K
-        for (size_t i = 0; i < numElementDOFs; ++i) {
-            for (size_t j = 0; j < numElementDOFs; ++j) {
-                A_K[i][j] = 0.0;
-                for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
-                    A_K[i][j] += w[k] * evalFunction(i, j, grad_b_q[k]);
-                }
-            }
-        }
-        */
-
         // Get field data and atomic result data,
         // since it will be added to during the kokkos loop
         ViewType view             = field.getView();
@@ -1018,20 +954,6 @@ namespace ippl {
             }
         }
 
-        /*
-        // Make local element matrix -- does not change through the element mesh
-        // Element matrix
-        Vector<T, numElementDOFs> A_K_diag;
-
-        // 1. Compute the Galerkin element matrix A_K
-        for (size_t i = 0; i < numElementDOFs; ++i) {
-            A_K_diag[i] = 0.0;
-            for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
-                A_K_diag[i] += w[k] * evalFunction(i, i, grad_b_q[k]);
-            }
-        }
-        */
-
         // Get field data and atomic result data,
         // since it will be added to during the kokkos loop
         ViewType view             = field.getView();
@@ -1162,20 +1084,6 @@ namespace ippl {
             }
         }
 
-        /*
-        // Make local element matrix -- does not change through the element mesh
-        // Element matrix
-        Vector<T, numElementDOFs> A_K_diag;
-
-        // 1. Compute the Galerkin element matrix A_K
-        for (size_t i = 0; i < numElementDOFs; ++i) {
-            A_K_diag[i] = 0.0;
-            for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
-                A_K_diag[i] += w[k] * evalFunction(i, i, grad_b_q[k]);
-            }
-        }
-        */
-
         // Get field data and atomic result data,
         // since it will be added to during the kokkos loop
         ViewType view             = field.getView();
@@ -1296,22 +1204,6 @@ namespace ippl {
                 grad_b_q[k][i] = this->evaluateRefElementShapeFunctionGradient(i, q[k]);
             }
         }
-
-        /*
-        // Make local element matrix -- does not change through the element mesh
-        // Element matrix
-        Vector<Vector<T, numElementDOFs>, numElementDOFs> A_K;
-
-        // 1. Compute the Galerkin element matrix A_K
-        for (size_t i = 0; i < numElementDOFs; ++i) {
-            for (size_t j = 0; j < numElementDOFs; ++j) {
-                A_K[i][j] = 0.0;
-                for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
-                    A_K[i][j] += w[k] * evalFunction(i, j, grad_b_q[k]);
-                }
-            }
-        }
-        */
 
         // Get field data and atomic result data,
         // since it will be added to during the kokkos loop

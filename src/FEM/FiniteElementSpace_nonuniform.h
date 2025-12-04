@@ -19,9 +19,10 @@
 
 namespace ippl {
 
+    /* Comment out as redefined
     constexpr unsigned calculateNumElementVertices(unsigned Dim) {
         return 1 << Dim;  // 2^Dim
-    }
+    }*/
 
     /**
      * @brief The FiniteElementSpace class handles the mesh index mapping to vertices and elements
@@ -228,7 +229,7 @@ namespace ippl {
         ElementType ref_element_m;
         const QuadratureType& quadrature_m;
         Vector<size_t, Dim> nr_m;
-        Vector<Kokkos::View<T*>> hr_m;
+        Vector<Kokkos::View<T*>, Dim> hr_m;
         Vector<double, Dim> origin_m;
     };
 
