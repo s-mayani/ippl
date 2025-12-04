@@ -16,4 +16,4 @@ if("${Kokkos_DEVICES}" MATCHES "CUDA" AND "${Kokkos_DEVICES}" MATCHES "OPENMP")
 endif()
 
 add_ippl_integration_test(TestInner LABELS integration field)
-add_ippl_integration_test(TestFieldBC_nonuniform LABELS integration field)
+add_ippl_integration_test(TestField_nonuniform LABELS integration field)
