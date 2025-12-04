@@ -40,7 +40,7 @@ namespace ippl {
 
         using QuadratureType = GaussJacobiQuadrature<Tlhs, QuadNumNodes, ElementType>;
 
-        using LagrangeType = LagrangeSpace<Tlhs, Dim, Order, ElementType, QuadratureType, FieldLHS, FieldRHS>;
+        using LagrangeType = LagrangeSpace_nonuniform<Tlhs, Dim, Order, ElementType, QuadratureType, FieldLHS, FieldRHS>;
 
         // default constructor (compatibility with Alpine)
         FEMPoissonSolver_nonuniform() 
