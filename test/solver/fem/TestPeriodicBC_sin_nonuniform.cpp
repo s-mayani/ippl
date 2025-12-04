@@ -61,7 +61,7 @@ void testFEMSolver(const unsigned& numNodesPerDim, const T& domain_start = 0.0,
     Inform m("");
     Inform msg2all("", INFORM_ALL_NODES);
 
-    using Mesh_t   = ippl::UniformCartesian<T, Dim>;
+    using Mesh_t   = ippl::Cartesian<T, Dim>;
     using Field_t  = ippl::Field<T, Dim, Mesh_t, Cell>;
     using BConds_t = ippl::BConds<Field_t, Dim>;
 
@@ -73,7 +73,20 @@ void testFEMSolver(const unsigned& numNodesPerDim, const T& domain_start = 0.0,
     ippl::NDIndex<Dim> domain(nodesPerDimVec);
     ippl::Vector<T, Dim> cellSpacing((domain_end - domain_start) / static_cast<T>(numCellsPerDim));
     ippl::Vector<T, Dim> origin(domain_start);
-    Mesh_t mesh(domain, cellSpacing, origin);
+
+    ippl::Vector<Kokkos::View<double*>, Dim> spacings;
+
+    using exec_space  = typename Kokkos::View<double*>::execution_space;
+    using policy_type = Kokkos::RangePolicy<exec_space>;
+    for (unsigned int d = 0; d < Dim; ++d) {
+        spacings[d] = Kokkos::View<double*>("spacingD", domain[d].length());
+        Kokkos::parallel_for("set_spacing", policy_type(0, spacings[d].extent(0)), 
+            KOKKOS_LAMBDA(int i) {
+                spacings[d](i) = cellSpacing[d];
+        });
+    }
+
+    Mesh_t mesh(spacings, origin);
 
     // specifies decomposition; here all dimensions are parallel
     std::array<bool, Dim> isParallel;
