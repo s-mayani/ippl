@@ -193,7 +193,7 @@ Examples</h3>
 <div class="line">cd build</div>
 </div><!-- fragment --> <h4><a class="anchor" id="autotoc_md9"></a>
 CMakeUserPresets</h4>
-<p >In the root IPPL source folder, there is a cmake user presets file which can be used to set some default cmake settings, they may be used in the following way </p><div class="fragment"><div class="line">cmake --prefix=release-testing ...</div>
+<p >In the root IPPL source folder, there is a cmake user presets file which can be used to set some default cmake settings, they may be used in the following way </p><div class="fragment"><div class="line">cmake --preset=release-testing ...</div>
 </div><!-- fragment --><p> This will set the following variables automatically (exact values may change over time) </p><div class="fragment"><div class="line">&quot;IPPL_ENABLE_TESTS&quot;: &quot;ON&quot;,</div>
 <div class="line">&quot;IPPL_ENABLE_UNIT_TESTS&quot;: &quot;ON&quot;</div>
 <div class="line">&quot;BUILD_SHARED_LIBS&quot;: &quot;ON&quot;,</div>
@@ -257,7 +257,6 @@ HIP release build (LUMI)</h4>
 <div class="line">      -DIPPL_ENABLE_SOLVERS=ON \</div>
 <div class="line">      -DIPPL_ENABLE_ALPINE=ON \</div>
 <div class="line">      -DHeffte_ENABLE_ROCM=ON \</div>
-<div class="line">      -DHeffte_ENABLE_GPU_AWARE_MPI=OFF \</div>
 <div class="line">      -DCMAKE_EXE_LINKER_FLAGS=&quot;-L/opt/cray/pe/mpich/8.1.28/ofi/amd/5.0/lib -L/opt/cray/pe/mpich/8.1.28/gtl/lib -L/opt/cray/pe/libsci/24.03.0/AMD/5.0/x86_64/lib -L/opt/cray/pe/dsmml/0.3.0/dsmml</div>
 <div class="line">/lib -L/opt/cray/xpmem/2.8.2-1.0_5.1__g84a27a5.shasta/lib64 -lsci_amd_mpi -lsci_amd -ldl -lmpi_amd -lmpi_gtl_hsa -ldsmml -lxpmem -L/opt/rocm-6.0.3/lib/lib -L/opt/rocm-6.0.3/lib/lib64 -L/opt/roc</div>
 <div class="line">m-6.0.3/lib/llvm/lib&quot;</div>
@@ -370,6 +369,79 @@ LUMI GPU partition</h2>
 <div class="line">srun ./select_gpu ${EXE_DIR}/TestGaussian 1024 1024 1024 pencils a2av no-reorder HOCKNEY --info 5</div>
 <div class="line">rm -rf ./select_gpu</div>
 </div><!-- fragment --><h1><a class="anchor" id="autotoc_md21"></a>
+Profiling on LUMI</h1>
+<h2><a class="anchor" id="autotoc_md22"></a>
+rocprof</h2>
+<p >Analysis with: <a href="https://ui.perfetto.dev/">https://ui.perfetto.dev/</a></p>
+<div class="fragment"><div class="line">#!/bin/bash -l</div>
+<div class="line">#</div>
+<div class="line">#SBATCH --job-name=opalx1</div>
+<div class="line">#SBATCH --error=opalx-%j.error</div>
+<div class="line">#SBATCH --output=opalx-2-%j.out</div>
+<div class="line">#SBATCH --time=00:05:00</div>
+<div class="line">#SBATCH --partition=standard-g</div>
+<div class="line">#SBATCH --nodes 1</div>
+<div class="line">#SBATCH --ntasks-per-core=1</div>
+<div class="line">#SBATCH -c 56 --threads-per-core=1</div>
+<div class="line">#SBATCH --ntasks-per-node=1</div>
+<div class="line">#SBATCH --gpus-per-node=8</div>
+<div class="line">#SBATCH --account=project_465001705 </div>
+<div class="line">#SBATCH --hint=nomultithread</div>
+<div class="line">#SBATCH --hint=exclusive</div>
+<div class="line">CPU_BIND=&quot;map_cpu:49,57,17,25,1,9,33,41&quot;</div>
+<div class="line">export MPICH_GPU_SUPPORT_ENABLED=1</div>
+<div class="line"> </div>
+<div class="line">ulimit -s unlimited</div>
+<div class="line">export EXE_DIR=/users/adelmann/sandbox/opalx/build/src/</div>
+<div class="line">module load cray-python/3.11.7 </div>
+<div class="line">module use /appl/local/containers/test-modules</div>
+<div class="line">module load LUMI/24.03 partition/G cpeAMD rocm/6.1.3 buildtools/24.03</div>
+<div class="line"> </div>
+<div class="line">cat &lt;&lt; EOF &gt; select_gpu</div>
+<div class="line">#!/bin/bash</div>
+<div class="line">export HIP_VISIBLE_DEVICES=\$SLURM_LOCALID</div>
+<div class="line">exec \$*</div>
+<div class="line">EOF</div>
+<div class="line">chmod +x ./select_gpu</div>
+<div class="line">srun ./select_gpu rocprof --hip-trace ${EXE_DIR}/opalx input.in --info 5</div>
+<div class="line">rm -rf ./select_gpu</div>
+</div><!-- fragment --><h2><a class="anchor" id="autotoc_md23"></a>
+omniperf (do not use omnitrace)</h2>
+<p >doc url: <a href="https://rocm.docs.amd.com/projects/rocprofiler-compute/en/docs-6.2.4/how-to/profile/mode.html">https://rocm.docs.amd.com/projects/rocprofiler-compute/en/docs-6.2.4/how-to/profile/mode.html</a></p>
+<div class="fragment"><div class="line">#!/bin/bash -l</div>
+<div class="line">#</div>
+<div class="line">#SBATCH --job-name=opalx1</div>
+<div class="line">#SBATCH --error=opalx-%j.error</div>
+<div class="line">#SBATCH --output=opalx-2-%j.out</div>
+<div class="line">#SBATCH --time=00:05:00</div>
+<div class="line">#SBATCH --partition=standard-g</div>
+<div class="line">#SBATCH --nodes 1</div>
+<div class="line">#SBATCH --ntasks-per-core=1</div>
+<div class="line">#SBATCH -c 56 --threads-per-core=1</div>
+<div class="line">#SBATCH --ntasks-per-node=1</div>
+<div class="line">#SBATCH --gpus-per-node=8</div>
+<div class="line">#SBATCH --account=project_465001705 </div>
+<div class="line">#SBATCH --hint=nomultithread</div>
+<div class="line">#SBATCH --hint=exclusive</div>
+<div class="line">CPU_BIND=&quot;map_cpu:49,57,17,25,1,9,33,41&quot;</div>
+<div class="line">export MPICH_GPU_SUPPORT_ENABLED=1</div>
+<div class="line"> </div>
+<div class="line">ulimit -s unlimited</div>
+<div class="line">export EXE_DIR=/users/adelmann/sandbox/opalx/build/src/</div>
+<div class="line">module load cray-python/3.11.7 </div>
+<div class="line">module use /appl/local/containers/test-modules</div>
+<div class="line">module load LUMI/24.03 partition/G cpeAMD rocm/6.1.3 buildtools/24.03</div>
+<div class="line">module load omniperf</div>
+<div class="line">cat &lt;&lt; EOF &gt; select_gpu</div>
+<div class="line">#!/bin/bash</div>
+<div class="line">#export ROCR_VISIBLE_DEVICES=\$SLURM_LOCALID</div>
+<div class="line">export HIP_VISIBLE_DEVICES=\$SLURM_LOCALID</div>
+<div class="line">exec \$*</div>
+<div class="line">EOF</div>
+<div class="line">chmod +x ./select_gpu</div>
+<div class="line">srun ./select_gpu omniperf profile --name opalx  --roof-only --kernel-names -- ${EXE_DIR}/opalx input.in --info 5</div>
+<div class="line">rm -rf ./select_gpu</div>
+</div><!-- fragment --><h1><a class="anchor" id="autotoc_md24"></a>
 Profiling IPPL MPI calls</h1>
 <p >You can use the mpiP tool (<a href="https://github.com/LLNL/mpiP">https://github.com/LLNL/mpiP</a>) to get statistics about the MPI calls in IPPL.</p>
 <p >To use it, download it from <a href="https://github.com/LLNL/mpiP">Github</a> and follow the instructions to install it. You may run into some issues while installing, here is a list of common issues and the solution:</p><ul>
@@ -382,13 +454,13 @@ Profiling IPPL MPI calls</h1>
 <p >If you application has been correctly instrumented, you will see that mpiP has been found and its version is printed at the top of the standard output. At the end of the standard output, you will get the name of the file containing the MPI statistics: <code>Storing mpiP output in ...</code></p>
 <p >To get a total amount of bytes moved around by your application, you can use the python script mpiP.py (found in the top level IPPL directory) in the following form: <code>python3 mpiP.py [path/to/directory]</code> where path/to/directory refers to the place where the .mpiP output can be found. This python script will then print out the total amount of Bytes moved by MPI in your application.</p>
 <p >Happy profiling!</p>
-<h1><a class="anchor" id="autotoc_md22"></a>
+<h1><a class="anchor" id="autotoc_md25"></a>
 Build Instructions</h1>
 <p >Here we compile links to recipies for easy build on various HPC systems.</p>
-<h2><a class="anchor" id="autotoc_md23"></a>
+<h2><a class="anchor" id="autotoc_md26"></a>
 MERLIN 7 (PSI)</h2>
 <p ><a href="https://hpce.pages.psi.ch/merlin7/ippl.html">IPPL build for A100 and HG</a></p>
-<h2><a class="anchor" id="autotoc_md24"></a>
+<h2><a class="anchor" id="autotoc_md27"></a>
 ALPS (CSCS)</h2>
 <p >Start by loading a <code>uenv</code> that contains most of the tools we want. Note that in future an <code>official</code> uenv will be provided in the CSCS uenv repository, but until testing is complete, use the following ...</p>
 <div class="fragment"><div class="line">uenv start --view=develop \</div>
