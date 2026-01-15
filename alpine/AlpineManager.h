@@ -237,6 +237,23 @@ public:
                 }
                 *rho = *rho - (Q / size);
             }
+        } else {
+            double size = 1;
+            for (unsigned d = 0; d < Dim; d++) {
+                size *= rmax[d] - rmin[d];
+            }
+
+            Field_t<Dim> mass(this->fcontainer_m->getMesh(), this->fcontainer_m->getFL());
+            mass = 0.0;
+
+            auto* solver = dynamic_cast<FieldSolver_t*>(this->fsolver_m.get());
+            auto& space = solver->getSpace();
+
+            space.evaluateLumpedMass(mass);
+
+            mass = (Q/size) * mass;
+
+            (*rho) = (*rho) - mass;
         }
     }
 };
