@@ -1,4 +1,4 @@
-// Class FEMPoissonSolver
+/ Class FEMPoissonSolver
 //   Solves the poisson equation using finite element methods and Conjugate
 //   Gradient
 
@@ -84,8 +84,8 @@ namespace ippl {
          */
         void solve() override {
             // create load vector for the problem
-            this->rhs_mp->fillHalo();
-            lagrangeSpace_m.evaluateLoadVector(*(this->rhs_mp));
+            //this->rhs_mp->fillHalo();
+            //lagrangeSpace_m.evaluateLoadVector(*(this->rhs_mp));
 
             const Vector<size_t, Dim> zeroNdIndex = Vector<size_t, Dim>(0);
 
