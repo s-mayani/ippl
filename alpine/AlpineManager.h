@@ -228,15 +228,15 @@ public:
         if ((this->fsolver_m->getStype() != "FEM") && (this->fsolver_m->getStype() != "FEM_PRECON")) {
             double cellVolume = std::reduce(hr.begin(), hr.end(), 1., std::multiplies<double>());
             (*rho)            = (*rho) / cellVolume;
-        }
 
-        // rho = rho_e - rho_i (only if periodic BCs)
-        if (this->fsolver_m->getStype() != "OPEN") {
-            double size = 1;
-            for (unsigned d = 0; d < Dim; d++) {
-                size *= rmax[d] - rmin[d];
+            // rho = rho_e - rho_i (only if periodic BCs)
+            if (this->fsolver_m->getStype() != "OPEN") {
+                double size = 1;
+                for (unsigned d = 0; d < Dim; d++) {
+                    size *= rmax[d] - rmin[d];
+                }
+                *rho = *rho - (Q / size);
             }
-            *rho = *rho - (Q / size);
         }
     }
 };
