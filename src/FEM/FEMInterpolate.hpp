@@ -82,11 +82,6 @@ namespace ippl {
         const NDIndex<Dim>& lDom = layout.getLocalNDIndex();
         const int nghost = f.getNghost();
 
-        Field lumpedMass(mesh, layout);
-        space.evaluateLumpedMass(lumpedMass);
-
-        view_type view_lumpedmass = lumpedMass.getView();
-
         // Particle attribute/device views
         auto d_attr = attrib.getView();  // scalar weight per particle (e.g. charge)
         auto d_pos  = pp.getView();      // positions (Vector<T,Dim>) per particle
@@ -119,9 +114,8 @@ namespace ippl {
                     for (unsigned d = 0; d < Dim; ++d) {
                         I[d] = static_cast<size_t>(v_nd[d] - lDom[d].first() + nghost);
                     }
-                    const T m = apply(view_lumpedmass, I);
 
-                    Kokkos::atomic_add(view_ptr<Dim>(view, I), val * w / m);
+                    Kokkos::atomic_add(view_ptr<Dim>(view, I), val * w);
                 }
             }
         );
