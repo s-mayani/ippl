@@ -1,4 +1,4 @@
-/ Class FEMPoissonSolver
+// Class FEMPoissonSolver
 //   Solves the poisson equation using finite element methods and Conjugate
 //   Gradient
 
