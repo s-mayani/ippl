@@ -86,11 +86,7 @@ namespace ippl {
             // create load vector for the problem
             this->rhs_mp->fillHalo();
             //lagrangeSpace_m.evaluateLoadVector(*(this->rhs_mp));
-
             lagrangeSpace_m.evaluateBCs(*(this->rhs_mp));
-
-            std::cout << "load vector " << std::endl;
-            this->rhs_mp->write();
 
             const Vector<size_t, Dim> zeroNdIndex = Vector<size_t, Dim>(0);
 
