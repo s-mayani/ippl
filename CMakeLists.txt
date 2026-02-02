@@ -138,6 +138,7 @@ endif()
 # ------------------------------------------------------------------------------
 if(IPPL_ENABLE_ALPINE)
   add_subdirectory(alpine)
+  add_subdirectory(dirichlet)
 endif()
 
 if(IPPL_ENABLE_COSMOLOGY)
