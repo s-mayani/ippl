@@ -1411,6 +1411,64 @@ namespace ippl {
         IpplTimings::stopTimer(evalLoadV);
     }
 
+    template <typename T, unsigned Dim, unsigned Order, typename ElementType,
+              typename QuadratureType, typename FieldLHS, typename FieldRHS>
+    void LagrangeSpace<T, Dim, Order, ElementType, QuadratureType, FieldLHS,
+                       FieldRHS>::evaluateBCs(FieldRHS& field) const {
+        Inform m("");
+
+        // Get domain information and ghost cells
+        auto ldom        = (field.getLayout()).getLocalNDIndex();
+        const int nghost = field.getNghost();
+        auto view = field.getView();
+
+        // Get boundary conditions from field
+        BConds<FieldRHS, Dim>& bcField = field.getFieldBC();
+        FieldBC bcType = bcField[0]->getBCType();
+
+        using exec_space  = typename Kokkos::View<const size_t*>::execution_space;
+        using policy_type = Kokkos::RangePolicy<exec_space>;
+
+        // Loop over elements to apply BCs
+        Kokkos::parallel_for(
+            "Loop over elements", policy_type(0, elementIndices.extent(0)),
+            KOKKOS_CLASS_LAMBDA(size_t index) {
+                const size_t elementIndex                        = elementIndices(index);
+                const Vector<size_t, numElementDOFs> global_dofs =
+                    this->LagrangeSpace::getGlobalDOFIndices(elementIndex);
+
+                size_t i, I;
+
+                // 1. Compute b_K
+                for (i = 0; i < numElementDOFs; ++i) {
+                    I = global_dofs[i];
+
+                    // TODO fix for higher order
+                    auto dof_ndindex_I = this->getMeshVertexNDIndex(I);
+
+                    // Skip boundary DOFs (Zero and Constant Dirichlet BCs)
+                    if (((bcType == ZERO_FACE) || (bcType == CONSTANT_FACE))
+                        && (this->isDOFOnBoundary(dof_ndindex_I))) {
+
+                        // get the appropriate index for the Kokkos view of the field
+                        for (unsigned d = 0; d < Dim; ++d) {
+                            dof_ndindex_I[d] = dof_ndindex_I[d] - ldom[d].first() + nghost;
+                        }
+
+                        apply(view, dof_ndindex_I) = 0;
+                    }
+                }
+            });
+        field.accumulateHalo();
+
+        if ((bcType == PERIODIC_FACE) || (bcType == CONSTANT_FACE)) {
+            bcField.apply(field);
+            bcField.assignGhostToPhysical(field);
+        }
+    }
+
+    ///////////////////////////////////////////////////////////////////////
+    /// Functions for error computations, etc. ////////////////////////////
     ///////////////////////////////////////////////////////////////////////
     /// Functions for error computations, etc. ////////////////////////////
     ///////////////////////////////////////////////////////////////////////

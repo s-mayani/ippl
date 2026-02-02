@@ -250,6 +250,7 @@ namespace ippl {
          * @return FieldRHS - The RHS field containing b
          */
         void evaluateLoadVector(FieldRHS& field) const;
+        void evaluateBCs(FieldRHS& field) const;
         void evaluateLumpedMass(FieldRHS& field) const;
 
         ///////////////////////////////////////////////////////////////////////
