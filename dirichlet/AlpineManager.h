@@ -196,7 +196,7 @@ public:
         // scatter the particles to the degrees of freedom using basis fcts
         // and compute "total charge" to make sure charge is conserved
         double Q_fem = 0.0;
-        Q_fem = assemble_rhs_from_particles(*q, *rho, *R, space, iteration_policy);
+        Q_fem = assemble_rhs_from_particles_and_charge(*q, *rho, *R, space, iteration_policy);
 
         double relError = std::fabs((Q_fem - (*rho).sum()) / Q_fem);
         m << relError << endl;

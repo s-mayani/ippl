@@ -132,7 +132,8 @@ namespace ippl {
     }
 
     /**
-     * @brief Assemble a P1 FEM load vector (RHS) from particle attributes.
+     * @brief Assemble a P1 FEM load vector (RHS) from particle attributes, and return 
+     * a "total charge" to check for charge conservation.
      *
      * For each particle position x, locate the owning element (ND index e_nd) and
      * reference coordinate xi. Deposit the particle attribute value into the
@@ -148,9 +149,9 @@ namespace ippl {
      */
     template <typename AttribIn, typename Field, typename PosAttrib, typename Space,
         typename policy_type = Kokkos::RangePolicy<typename Field::execution_space>>
-    inline Field::value_type assemble_rhs_from_particles(const AttribIn& attrib, Field& f,
-                                             const PosAttrib& pp, const Space& space,
-                                             policy_type iteration_policy)
+    inline typename Field::value_type assemble_rhs_from_particles_and_charge(const AttribIn& attrib,
+                                            Field& f, const PosAttrib& pp, const Space& space,
+                                            policy_type iteration_policy)
     {
         constexpr unsigned Dim = Field::dim;
         using T          = typename Field::value_type;
@@ -222,7 +223,7 @@ namespace ippl {
 
         // MPI reduce into total charge
         T total_charge = 0.0;
-        Comm->allreduce(local_charge, total_charge, 1, std::plus<charge>());
+        Comm->allreduce(local_charge, total_charge, 1, std::plus<T>());
 
         static IpplTimings::TimerRef accumulateHaloTimer = IpplTimings::getTimer("accumulateHalo");
         IpplTimings::startTimer(accumulateHaloTimer);
