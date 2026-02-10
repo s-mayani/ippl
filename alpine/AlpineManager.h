@@ -179,7 +179,6 @@ public:
         ippl::ParticleAttrib<double>* q          = &this->pcontainer_m->q;
         typename Base::particle_position_type* R = &this->pcontainer_m->R;
         Field_t<Dim>* rho                        = &this->fcontainer_m->getRho();
-        double Q                                 = Q_m;
         size_type localParticles                 = this->pcontainer_m->getLocalNum();
 
         using exec_space = typename Kokkos::View<const size_t*>::execution_space;
@@ -191,13 +190,15 @@ public:
         auto* solver = dynamic_cast<FieldSolver_t*>(this->fsolver_m.get());
         auto& space = solver->getSpace();
 
-        assemble_rhs_from_particles(*q, *rho, *R, space, iteration_policy);
+        // scatter the particles to the degrees of freedom using basis fcts
+        // and compute "total charge" to make sure charge is conserved
+        double Q_fem = 0.0;
+        assemble_rhs_from_particles(*q, *rho, *R, space, iteration_policy, Q_fem);
 
-        double relError = std::fabs((Q - (*rho).sum()) / Q);
+        double relError = std::fabs((Q_fem - (*rho).sum()) / Q_fem);
         m << relError << endl;
 
-        double num = 1e-14;
-        checkChargeConservation(num, m);
+        checkChargeConservation(relError, m);
 
         getDensity(rho);
     }

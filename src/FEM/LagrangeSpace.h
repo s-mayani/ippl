@@ -195,6 +195,10 @@ namespace ippl {
         /// Functions to access element info from outside /////////////////////
         ///////////////////////////////////////////////////////////////////////
 
+        KOKKOS_FUNCTION T getDeterminantOfTransformationJacobian(vertex_points_t pt) const {
+            return this->ref_element_m.getDeterminantOfTransformationJacobian(pt);
+        }
+
         KOKKOS_FUNCTION point_t getInverseTransposeTransformationJacobian(vertex_points_t pt) const {
             return this->ref_element_m.getInverseTransposeTransformationJacobian(pt);
         }

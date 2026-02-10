@@ -70,6 +70,10 @@ namespace ippl {
 
         IpplTimings::startTimer(t);
 
+        // Compute Determinan of Transformation Jacobian ()
+        auto points = space.getElementMeshVertexPoints(Vector<size_t, Dim>(0));
+        const T absDetDPhi = space.getDeterminantOfTransformationJacobian(points);
+
         view_type view = f.getView();
         
         // Mesh / layout (for locating + indexing into the field view)
@@ -115,10 +119,103 @@ namespace ippl {
                         I[d] = static_cast<size_t>(v_nd[d] - lDom[d].first() + nghost);
                     }
 
-                    Kokkos::atomic_add(view_ptr<Dim>(view, I), val * w);
+                    Kokkos::atomic_add(view_ptr<Dim>(view, I), val * w * absDetDPhi);
                 }
             }
         );
+
+        static IpplTimings::TimerRef accumulateHaloTimer = IpplTimings::getTimer("accumulateHalo");
+        IpplTimings::startTimer(accumulateHaloTimer);
+        f.accumulateHalo();
+        IpplTimings::stopTimer(accumulateHaloTimer);
+
+    }
+
+    /**
+     * @brief Assemble a P1 FEM load vector (RHS) from particle attributes.
+     *
+     * For each particle position x, locate the owning element (ND index e_nd) and
+     * reference coordinate xi. Deposit the particle attribute value into the
+     * element's nodal DOFs using P1 Lagrange shape functions evaluated at xi.
+     *
+     * @tparam AttribIn   Particle attribute type with getView()(p) -> scalar
+     * @tparam Field      ippl::Field with rank=Dim nodal coefficients (RHS)
+     * @tparam PosAttrib  Particle position attribute with getView()(p) -> Vector<T,Dim>
+     * @tparam Space      Lagrange space providing element/DOF/topology queries
+     * @tparam policy_type Kokkos execution policy (defaults to Field::execution_space)
+     * @tparam charge The value to write in the "total charge" from FEM into (type T)
+     */
+    template <typename AttribIn, typename Field, typename PosAttrib, typename Space,
+        typename policy_type = Kokkos::RangePolicy<typename Field::execution_space>,
+        typename charge>
+    inline void assemble_rhs_from_particles(const AttribIn& attrib, Field& f,
+                                             const PosAttrib& pp, const Space& space,
+                                             policy_type iteration_policy, charge& total)
+    {
+        constexpr unsigned Dim = Field::dim;
+        using T          = typename Field::value_type;
+        using view_type  = typename Field::view_type;
+        using mesh_type  = typename Field::Mesh_t;
+
+        static IpplTimings::TimerRef t = IpplTimings::getTimer("assemble_rhs_from_particles(P1)");
+
+        IpplTimings::startTimer(t);
+
+        // Compute Determinan of Transformation Jacobian ()
+        auto points = space.getElementMeshVertexPoints(Vector<size_t, Dim>(0));
+        const T absDetDPhi = space.getDeterminantOfTransformationJacobian(points);
+
+        view_type view = f.getView();
+        
+        // Mesh / layout (for locating + indexing into the field view)
+        mesh_type& mesh = f.get_mesh();
+
+        const auto hr = mesh.getMeshSpacing();
+        const auto origin = mesh.getOrigin();
+
+        FieldLayout<Dim>& layout = f.getLayout();
+        const NDIndex<Dim>& lDom = layout.getLocalNDIndex();
+        const int nghost = f.getNghost();
+
+        // Particle attribute/device views
+        auto d_attr = attrib.getView();  // scalar weight per particle (e.g. charge)
+        auto d_pos  = pp.getView();      // positions (Vector<T,Dim>) per particle
+
+        // make device copy of space
+        auto device_space = space.getDeviceMirror();
+
+        Kokkos::parallel_reduce("assemble_rhs_from_particles_P1", iteration_policy,
+            KOKKOS_LAMBDA(const size_t p, charge& valL) {
+                const Vector<T, Dim> x = d_pos(p);
+                const T val = d_attr(p);  
+
+                // "total charge" for FEM case = q_p * |detJ(x_p)|
+                valL += val * absDetDPhi;
+
+                Vector<size_t, Dim> e_nd;
+                Vector<T, Dim> xi;
+
+                locate_element_nd_and_xi<T, Dim>(hr, origin, x, e_nd, xi);
+
+                // DOFs for this element
+                const auto dofs = device_space.getGlobalDOFIndices(e_nd);
+
+                // Deposit into each vertex/DOF
+                for (size_t a = 0; a < dofs.dim; ++a) {
+                    const size_t local = device_space.getLocalDOFIndex(e_nd, dofs[a]); 
+                    const T w = device_space.evaluateRefElementShapeFunction(local, xi);
+
+                    // ND coords (global, vertex-centered)
+                    const auto v_nd = device_space.getMeshVertexNDIndex(dofs[a]);
+                    Vector<size_t, Dim> I; // indices into view
+
+                    for (unsigned d = 0; d < Dim; ++d) {
+                        I[d] = static_cast<size_t>(v_nd[d] - lDom[d].first() + nghost);
+                    }
+
+                    Kokkos::atomic_add(view_ptr<Dim>(view, I), val * w * absDetDPhi);
+                }
+            }, Kokkos::Sum<charge>(total));
 
         static IpplTimings::TimerRef accumulateHaloTimer = IpplTimings::getTimer("accumulateHalo");
         IpplTimings::startTimer(accumulateHaloTimer);
