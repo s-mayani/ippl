@@ -143,14 +143,14 @@ namespace ippl {
      * @tparam PosAttrib  Particle position attribute with getView()(p) -> Vector<T,Dim>
      * @tparam Space      Lagrange space providing element/DOF/topology queries
      * @tparam policy_type Kokkos execution policy (defaults to Field::execution_space)
-     * @tparam charge The value to write in the "total charge" from FEM into (type T)
+     *
+     * @return The "total charge" in the FEM case \f$\sum_p q_p |detJ(x_p)|\f$
      */
     template <typename AttribIn, typename Field, typename PosAttrib, typename Space,
-        typename policy_type = Kokkos::RangePolicy<typename Field::execution_space>,
-        typename charge>
-    inline void assemble_rhs_from_particles(const AttribIn& attrib, Field& f,
+        typename policy_type = Kokkos::RangePolicy<typename Field::execution_space>>
+    inline Field::value_type assemble_rhs_from_particles(const AttribIn& attrib, Field& f,
                                              const PosAttrib& pp, const Space& space,
-                                             policy_type iteration_policy, charge& total)
+                                             policy_type iteration_policy)
     {
         constexpr unsigned Dim = Field::dim;
         using T          = typename Field::value_type;
@@ -181,11 +181,14 @@ namespace ippl {
         auto d_attr = attrib.getView();  // scalar weight per particle (e.g. charge)
         auto d_pos  = pp.getView();      // positions (Vector<T,Dim>) per particle
 
+        // variable to sum charge into, per MPI rank
+        T local_charge = 0.0;
+
         // make device copy of space
         auto device_space = space.getDeviceMirror();
 
         Kokkos::parallel_reduce("assemble_rhs_from_particles_P1", iteration_policy,
-            KOKKOS_LAMBDA(const size_t p, charge& valL) {
+            KOKKOS_LAMBDA(const size_t p, T& valL) {
                 const Vector<T, Dim> x = d_pos(p);
                 const T val = d_attr(p);  
 
@@ -215,13 +218,18 @@ namespace ippl {
 
                     Kokkos::atomic_add(view_ptr<Dim>(view, I), val * w * absDetDPhi);
                 }
-            }, Kokkos::Sum<charge>(total));
+            }, Kokkos::Sum<T>(local_charge));
+
+        // MPI reduce into total charge
+        T total_charge = 0.0;
+        Comm->allreduce(local_charge, total_charge, 1, std::plus<charge>());
 
         static IpplTimings::TimerRef accumulateHaloTimer = IpplTimings::getTimer("accumulateHalo");
         IpplTimings::startTimer(accumulateHaloTimer);
         f.accumulateHalo();
         IpplTimings::stopTimer(accumulateHaloTimer);
 
+        return total_charge;
     }
 
     template<class View, class IVec, std::size_t... Is>
