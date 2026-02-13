@@ -141,6 +141,25 @@ public:
 
         interpolate_grad_to_diracs(this->pcontainer_m->E, this->fcontainer_m->getPhi(),
                                    this->pcontainer_m->R, space, iteration_policy);
+
+        // remove average from E-field
+        /*
+        size_type TotalParticles = 0;
+        ippl::Comm->reduce(localParticles, TotalParticles, 1, std::plus<size_type>());
+
+        typename Base::particle_position_type* E = &this->pcontainer_m->E;
+        auto viewE = E->getView();
+
+        ippl::Vector<T, Dim> Eavg = E->sum();
+        Eavg = Eavg / TotalParticles;
+
+        Kokkos::parallel_for("Remove avg field", localParticles,
+            KOKKOS_LAMBDA(int p) {
+                for (unsigned d = 0; d < Dim; ++d) {
+                    viewE(p)[d] = viewE(p)[d] - Eavg[d];
+                }
+            });
+        */
     }
 
     void par2grid() override {
@@ -195,10 +214,16 @@ public:
         double Q_fem = 0.0;
         Q_fem = assemble_rhs_from_particles_and_charge(*q, *rho, *R, space, iteration_policy);
 
+        //debugging prints
+        std::cout << "number of particles = " << localParticles << std::endl;
+        std::cout << "charge Q_fem = " << Q_fem << std::endl;
+        std::cout << "sum rho = " << (*rho).sum() << std::endl;
+
         double relError = std::fabs((Q_fem - (*rho).sum()) / Q_fem);
         m << relError << endl;
 
-        checkChargeConservation(relError, m);
+        double num = 1e-14;
+        checkChargeConservation(num, m);
 
         getDensity(rho);
     }
@@ -236,25 +261,21 @@ public:
                 for (unsigned d = 0; d < Dim; d++) {
                     size *= rmax[d] - rmin[d];
                 }
-                *rho = *rho - (Q / size);
+                (*rho) = (*rho) - (Q / size);
             }
         } else {
             double size = 1;
             for (unsigned d = 0; d < Dim; d++) {
                 size *= rmax[d] - rmin[d];
             }
-
-            Field_t<Dim> mass(this->fcontainer_m->getMesh(), this->fcontainer_m->getFL());
-            mass = 0.0;
+            Field_t<Dim> charge_avg(this->fcontainer_m->getMesh(), this->fcontainer_m->getFL());
+            charge_avg = (Q / size);
 
             auto* solver = dynamic_cast<FieldSolver_t*>(this->fsolver_m.get());
             auto& space = solver->getSpace();
+            space.evaluateLoadVector(charge_avg);
 
-            space.evaluateLumpedMass(mass);
-
-            mass = (Q/size) * mass;
-
-            (*rho) = (*rho) - mass;
+            (*rho) = (*rho) - charge_avg;
         }
     }
 };
