@@ -18,6 +18,7 @@
 #include "FEM/Entity.h"
 #include "FEMHelperStructs.h"
 #include "Field/HaloCells.h"
+#include "Kokkos_Macros.hpp"
 
 namespace ippl {
 
@@ -111,6 +112,33 @@ namespace ippl {
             return container.norm(p);
         }
 
+        template <typename TA, typename TB>
+        struct innerProduct_functor {
+            innerProduct_functor(TA view_a, TB view_b, auto numDOFs)
+                : view_a_{view_a}
+                , view_b_{view_b}
+                , numDOFs_(numDOFs) {}
+
+            template <typename ARGS, typename TV>
+            KOKKOS_INLINE_FUNCTION void operator()(const ARGS& args, TV& val) const {
+                // Compute dot product of DOFArrays at this position
+                auto dof_a = apply(view_a_, args);
+                auto dof_b = apply(view_b_, args);
+                for (unsigned dof = 0; dof < numDOFs_; ++dof) {
+                    val += dof_a[dof] * dof_b[dof];
+                }
+            }
+
+            KOKKOS_INLINE_FUNCTION void join(auto& dst, const auto& src) const { dst += src; }
+
+            KOKKOS_INLINE_FUNCTION void init(auto& dst) const { dst = 0; }
+
+        private:
+            TA view_a_;
+            TB view_b_;
+            const unsigned numDOFs_;
+        };
+
         // Friend function for inner product (callable as ippl::innerProduct via ADL)
         friend T innerProduct(const FEMContainer<T, Dim, EntityTypes, DOFNums>& a,
                               const FEMContainer<T, Dim, EntityTypes, DOFNums>& b) {
@@ -119,6 +147,8 @@ namespace ippl {
             // Compute inner product over all fields in the tuple
             [&]<std::size_t... Is>(std::index_sequence<Is...>) {
                 (([&]() {
+                     // FIXME: GPU error: An extended __host__ __device__ lambda cannot be defined
+                     // inside a generic lambda expression("operator()").
                      const auto& field_a = std::get<Is>(a.data_m);
                      const auto& field_b = std::get<Is>(b.data_m);
                      auto view_a         = field_a.getView();
@@ -128,22 +158,11 @@ namespace ippl {
                      T fieldLocalSum            = 0.0;
                      constexpr unsigned numDOFs = numDOFs_m[Is];
 
-                     using exec_space =
-                         typename std::remove_reference_t<decltype(field_a)>::execution_space;
-                     using index_array_type =
-                         typename RangePolicy<Dim, exec_space>::index_array_type;
+                     innerProduct_functor lambda(view_a, view_b, numDOFs);
 
-                     ippl::parallel_reduce(
-                         "FEMContainer innerProduct field", field_a.getFieldRangePolicy(),
-                         KOKKOS_LAMBDA(const index_array_type& args, T& val) {
-                             // Compute dot product of DOFArrays at this position
-                             auto dof_a = apply(view_a, args);
-                             auto dof_b = apply(view_b, args);
-                             for (unsigned dof = 0; dof < numDOFs; ++dof) {
-                                 val += dof_a[dof] * dof_b[dof];
-                             }
-                         },
-                         Kokkos::Sum<T>(fieldLocalSum));
+                     ippl::parallel_reduce("FEMContainer innerProduct field",
+                                           field_a.getFieldRangePolicy(), lambda,
+                                           Kokkos::Sum<T>(fieldLocalSum));
 
                      localSum += fieldLocalSum;
                  }()),
