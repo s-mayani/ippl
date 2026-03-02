@@ -2091,6 +2091,7 @@ namespace ippl {
         // however, it would be good to throw an error in this case
         // throw IpplException("LagrangeSpace::getLocalDOFIndex()",
         //                    "FEM Lagrange Space: Global DOF not found in specified element");
+        // FIXME: Take a look at Kokkos BOUNDS_CHECK for inspiration
         return 0;
     }
 
