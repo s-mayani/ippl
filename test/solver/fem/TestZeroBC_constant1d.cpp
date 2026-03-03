@@ -19,6 +19,7 @@
 
 #include "Meshes/Centering.h"
 #include "PoissonSolvers/FEMPoissonSolver.h"
+#include "FEM/DOFLocations.h"
 
 template <typename T, unsigned Dim>
 struct AnalyticSol {
@@ -28,7 +29,7 @@ struct AnalyticSol {
     }
 };
 
-template <typename T, unsigned Dim>
+template <typename T, unsigned Dim, unsigned Order, unsigned QuadNumNodes>
 void testFEMSolver(const unsigned& numNodesPerDim, const T& domain_start = 0.0,
                    const T& domain_end = 1.0) {
     
@@ -39,9 +40,10 @@ void testFEMSolver(const unsigned& numNodesPerDim, const T& domain_start = 0.0,
     Inform m("");
     Inform msg2all("", INFORM_ALL_NODES);
 
-    using Mesh_t   = ippl::UniformCartesian<T, Dim>;
-    using Field_t  = ippl::Field<T, Dim, Mesh_t, Cell>;
-    using BConds_t = ippl::BConds<Field_t, Dim>;
+    using Mesh_t        = ippl::UniformCartesian<T, Dim>;
+    using DOFHandler_t  = ippl::DOFHandler<T, ippl::FiniteElementSpaceTraits<ippl::LagrangeSpaceTag, Dim, Order>>;
+    using Field_t       = typename DOFHandler_t::FEMContainer_t;
+    using BCTypes_t      = std::array<ippl::FieldBC, 2*Dim>;
 
     const unsigned numCellsPerDim = numNodesPerDim - 1;
     const unsigned numGhosts      = 1;
@@ -62,9 +64,9 @@ void testFEMSolver(const unsigned& numNodesPerDim, const T& domain_start = 0.0,
     Field_t rhs(mesh, layout, numGhosts);  // right hand side (set once)
 
     // Define boundary conditions
-    BConds_t bcField;
+    BCTypes_t bcField;
     for (unsigned int i = 0; i < 2 * Dim; ++i) {
-        bcField[i] = std::make_shared<ippl::ZeroFace<Field_t>>(i);
+        bcField[i] = ippl::ZERO_FACE;
     }
     lhs.setFieldBC(bcField);
     rhs.setFieldBC(bcField);
@@ -75,7 +77,7 @@ void testFEMSolver(const unsigned& numNodesPerDim, const T& domain_start = 0.0,
     IpplTimings::stopTimer(initTimer);
 
     // initialize the solver
-    ippl::FEMPoissonSolver<Field_t, Field_t> solver(lhs, rhs);
+    ippl::FEMPoissonSolver<Field_t, Field_t, Order, QuadNumNodes> solver(lhs, rhs);
 
     // set the parameters
     ippl::ParameterList params;
@@ -122,8 +124,28 @@ int main(int argc, char* argv[]) {
         msg << std::setw(15) << "Iterations";
         msg << endl;
 
+
+        // Test first order with multiple mesh sizes
+        // Using 2p+3 quadrature points: 2(1)+3 = 5
+        // 2p + 1 would also be sufficient, but we use 2p+3 on all tests for consistency
+        msg << "Testing Order 1 with QuadNumNodes = 5:" << endl;
         for (unsigned n = 1 << 2; n <= 1 << 10; n = n << 1) {
-            testFEMSolver<T, 1>(n, -1.0, 1.0);
+            testFEMSolver<T, 1, 1, 5>(n, -1.0, 1.0);
+        }
+
+        msg << "Testing Order 2 with QuadNumNodes = 7:" << endl;
+        for (unsigned n = 1 << 2; n <= 1 << 10; n = n << 1) {
+            testFEMSolver<T, 1, 2, 7>(n, -1.0, 1.0);
+        }
+
+        msg << "Testing Order 3 with QuadNumNodes = 9:" << endl;
+        for (unsigned n = 1 << 2; n <= 1 << 10; n = n << 1) {
+            testFEMSolver<T, 1, 3, 9>(n, -1.0, 1.0);
+        }
+
+        msg << "Testing Order 4 with QuadNumNodes = 11:" << endl;
+        for (unsigned n = 1 << 2; n <= 1 << 10; n = n << 1) {
+            testFEMSolver<T, 1, 4, 11>(n, -1.0, 1.0);
         }
 
         // stop the timer
