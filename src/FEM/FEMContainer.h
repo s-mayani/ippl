@@ -81,6 +81,9 @@ namespace ippl {
         FEMContainer<T, Dim, EntityTypes, DOFNums> operator*(T scalar) const;
         FEMContainer<T, Dim, EntityTypes, DOFNums> operator/(T scalar) const;
 
+        T max() const;
+        T min() const;
+
         // Friend function for scalar * FEMContainer
         friend FEMContainer<T, Dim, EntityTypes, DOFNums> operator*(T scalar, const FEMContainer<T, Dim, EntityTypes, DOFNums>& container) {
             return container * scalar;
@@ -107,13 +110,18 @@ namespace ippl {
                     // Compute local inner product by iterating over view
                     T fieldLocalSum = 0.0;
                     constexpr unsigned numDOFs = numDOFs_m[Is];
-                    size_t n = view_a.extent(0);
 
-                    Kokkos::parallel_reduce("FEMContainer innerProduct field", n,
-                        KOKKOS_LAMBDA(const size_t i, T& val) {
-                            // Compute dot product of DOFArrays at position i
+                    using exec_space = typename std::remove_reference_t<decltype(field_a)>::execution_space;
+                    using index_array_type = typename RangePolicy<Dim, exec_space>::index_array_type;
+
+                    ippl::parallel_reduce("FEMContainer innerProduct field",
+                        field_a.getFieldRangePolicy(),
+                        KOKKOS_LAMBDA(const index_array_type& args, T& val) {
+                            // Compute dot product of DOFArrays at this position
+                            auto dof_a = apply(view_a, args);
+                            auto dof_b = apply(view_b, args);
                             for (unsigned dof = 0; dof < numDOFs; ++dof) {
-                                val += view_a(i)[dof] * view_b(i)[dof];
+                                val += dof_a[dof] * dof_b[dof];
                             }
                         },
                         Kokkos::Sum<T>(fieldLocalSum)
@@ -144,6 +152,7 @@ namespace ippl {
 
         KOKKOS_INLINE_FUNCTION Mesh_t& get_mesh() const { return *mesh_m; }
 
+        KOKKOS_INLINE_FUNCTION Layout_t& getLayout() { return *VertexLayout_m; }
         KOKKOS_INLINE_FUNCTION const Layout_t& getLayout() const { return *VertexLayout_m; }
 
         // Access individual layouts
@@ -181,6 +190,20 @@ namespace ippl {
             return std::get<index>(data_m).getView();
         }
 
+        /**
+         * @brief Get a range policy for iterating over a specific entity type field
+         *
+         * @tparam EntityType The entity type to get the range policy for
+         * @tparam PolicyArgs Additional template parameters for the range policy
+         * @param nghost Number of ghost layers to include in the range policy (default 0)
+         * @return Range policy for iterating over the specified entity type field
+         */
+        template <typename EntityType, class... PolicyArgs>
+        auto getFieldRangePolicy(const int nghost = 1) const {
+            constexpr unsigned index = TagIndex<EntityTypes>::template index<EntityType>();
+            return std::get<index>(data_m).template getFieldRangePolicy<PolicyArgs...>(nghost);
+        }
+
         const ViewTuple getAllViews() const {
             ViewTuple views;
             for (unsigned i = 0; i < NEntitys; ++i) {
@@ -198,10 +221,24 @@ namespace ippl {
          *
          * Takes an array specifying which BC type to apply on each boundary face
          * and applies corresponding boundary conditions to each field in the container.
+         * 
+         * Only allowed for BC types that do not require constant values, i.e., PERIODIC_FACE, ZERO_FACE, NO_FACE.
          *
          * @param bcTypes Array of boundary condition types for each face (0 to 2*Dim-1)
          */
         void setFieldBC(const std::array<FieldBC, 2*Dim>& bcTypes);
+
+        /**
+         * @brief Set boundary conditions for all entity type fields
+         *
+         * Takes an array specifying which BC type to apply on each boundary face
+         * and applies corresponding boundary conditions to each field in the container.
+         * 
+         * Allowed for all BC types, contant values needed for CONSTANT_FACE and EXTRAPOLATE_FACE given in bcValues and bcSlopes arrays.
+         *
+         * @param bcTypes Array of boundary condition types for each face (0 to 2*Dim-1)
+         */
+        void setFieldBC(const std::array<FieldBC, 2*Dim>& bcTypes, std::array<T, 2*Dim> bcValues, std::array<T, 2*Dim> bcSlopes);
 
         /**
          * @brief Set boundary conditions from a BConds object
@@ -223,7 +260,17 @@ namespace ippl {
          *
          * @return Const reference to array of boundary condition types
          */
-        const std::array<FieldBC, 2*Dim>& getFieldBC() const { return bcTypes_m; }
+        const std::array<FieldBC, 2*Dim>& getFieldBCTypes() const { return bcTypes_m; }
+
+        /**
+         * @brief Get boundary conditions as BConds object
+         *
+         * Constructs and returns a BConds object containing the boundary conditions.
+         * The BConds is templated on a simple scalar Field type for compatibility with solvers.
+         *
+         * @return BConds object with all boundary conditions and values
+         */
+        BConds<Field<T, Dim, Mesh_t, Cell>, Dim> getFieldBC() const;
 
         /**
          * @brief Apply boundary conditions to all fields
@@ -262,10 +309,11 @@ namespace ippl {
 
         Mesh_t* mesh_m; // Pointer to the mesh
 
-        const Layout_t* VertexLayout_m; // Layout of vertices
+        Layout_t* VertexLayout_m; // Layout of vertices
 
-        std::array<FieldBC, 2*Dim> bcTypes_m; // Boundary condition types for each face
-        std::array<T, 2*Dim> bcValues_m{};      // Constant values for CONSTANT_FACE boundary conditions
+        std::array<FieldBC, 2*Dim> bcTypes_m;   // Boundary condition types for each face
+        std::array<T, 2*Dim> bcValues_m{};      // Offset values for CONSTANT_FACE and EXTRAPOLATE_FACE BCs
+        std::array<T, 2*Dim> bcSlopes_m{};      // Slope values for EXTRAPOLATE_FACE BCs (default 1.0)
     };
 }   // namespace ippl
 

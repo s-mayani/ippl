@@ -295,6 +295,7 @@ namespace ippl {
             static constexpr unsigned numElementDOFs = LagrangeSpace::numElementDOFs;
             Vector<size_t, Dim> nr_m;
             ElementType ref_element_m;
+            LagrangeDOFLocations<T, Dim, Order> dofLocations_m;
             
             // these are the functions needed for interpolation to the space
             KOKKOS_FUNCTION indices_t getMeshVertexNDIndex(const size_t& vertex_index) const;

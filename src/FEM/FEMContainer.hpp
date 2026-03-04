@@ -62,7 +62,9 @@ namespace ippl {
         mesh_m = &m;
 
         // Initialize layout pointer to point to the input layout
-        VertexLayout_m = &l;
+        // const_cast is needed because we store a non-const pointer to allow
+        // preconditioners to work with both Field and FEMContainer types
+        VertexLayout_m = const_cast<Layout_t*>(&l);
 
         // Initialize boundary condition types to NO_FACE by default
         bcTypes_m.fill(NO_FACE);
@@ -188,6 +190,41 @@ namespace ippl {
             }()), ...);
         }(std::make_index_sequence<std::tuple_size_v<decltype(data_m)>>{});
         return result;
+    }
+
+
+    // TODO: Only for testing purposes, not efficient
+    template <typename T, unsigned Dim, typename EntityTypes, typename DOFNums>
+    T FEMContainer<T, Dim, EntityTypes, DOFNums>::max() const {
+        T maxVal = std::numeric_limits<T>::lowest();
+        [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+            (([&]() {
+                auto fieldMax = std::get<Is>(data_m).max();
+                for (unsigned int i = 0; i < fieldMax.data.size(); ++i) {
+                    if (fieldMax[i] > maxVal) {
+                        maxVal = fieldMax[i];
+                    }
+                }
+            }()), ...);
+        }(std::make_index_sequence<std::tuple_size_v<decltype(data_m)>>{});
+        return maxVal;
+    }
+
+    // TODO:Only for testing purposes, not efficient
+    template <typename T, unsigned Dim, typename EntityTypes, typename DOFNums>
+    T FEMContainer<T, Dim, EntityTypes, DOFNums>::min() const {
+        T minVal = std::numeric_limits<T>::max();
+        [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+            (([&]() {
+                auto fieldMin = std::get<Is>(data_m).min();
+                for (unsigned int i = 0; i < fieldMin.data.size(); ++i) {
+                    if (fieldMin[i] < minVal) {
+                        minVal = fieldMin[i];
+                    }
+                }
+            }()), ...);
+        }(std::make_index_sequence<std::tuple_size_v<decltype(data_m)>>{});
+        return minVal;
     }
 
     template <typename T, unsigned Dim, typename EntityTypes, typename DOFNums>
@@ -374,12 +411,102 @@ namespace ippl {
                             bcField[face] = std::make_shared<ZeroFace<Field_t>>(face);
                             break;
                         case CONSTANT_FACE:
-                            // For CONSTANT_FACE, use the stored constant value
+                            // For CONSTANT_FACE, check if a value was provided
+                            if (bcValues_m[face] == 0.0) {
+                                throw std::runtime_error("CONSTANT_FACE BC on face " + std::to_string(face) +
+                                    " requires a constant value. Use setFieldBC(BConds) to provide values.");
+                            }
                             bcField[face] = std::make_shared<ConstantFace<Field_t>>(face, value_type(bcValues_m[face]));
                             break;
                         case EXTRAPOLATE_FACE:
-                            // For EXTRAPOLATE_FACE, use default offset and slope
-                            bcField[face] = std::make_shared<ExtrapolateFace<Field_t>>(face, value_type(0.0), value_type(1.0));
+                            // For EXTRAPOLATE_FACE, check if values were provided
+                            if (bcValues_m[face] == 0.0 && bcSlopes_m[face] == 0.0) {
+                                throw std::runtime_error("EXTRAPOLATE_FACE BC on face " + std::to_string(face) +
+                                    " requires offset and slope values. Use setFieldBC(BConds) to provide values.");
+                            }
+                            bcField[face] = std::make_shared<ExtrapolateFace<Field_t>>(face, value_type(bcValues_m[face]), value_type(bcSlopes_m[face]));
+                            break;
+                        case NO_FACE:
+                            // For NO_FACE, create NoBcFace
+                            bcField[face] = std::make_shared<NoBcFace<Field_t>>(face);
+                            break;
+                        default:
+                            // Create NoBcFace to avoid null pointers
+                            bcField[face] = std::make_shared<NoBcFace<Field_t>>(face);
+                            break;
+                    }
+                }
+
+                // Debug: check if field is properly initialized
+                auto& field = std::get<Is>(data_m);
+
+                // Apply the boundary conditions to the field
+                field.setFieldBC(bcField);
+            }()), ...);
+        }(std::make_index_sequence<NEntitys>{});
+    }
+
+        template <typename T, unsigned Dim, typename EntityTypes, typename DOFNums>
+    void FEMContainer<T, Dim, EntityTypes, DOFNums>::setFieldBC(const std::array<FieldBC, 2*Dim>& bcTypes, std::array<T, 2*Dim> bcValues, std::array<T, 2*Dim> bcSlopes) {
+        // Store the boundary condition types
+        bcTypes_m = bcTypes;
+
+        // Apply boundary conditions to each field in the container
+        [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+            (([&]() {
+                // Get the entity type and its direction
+                using EntityType = std::tuple_element_t<Is, EntityTypes>;
+                constexpr std::array<bool, Dim> entityDir = EntityType{}.getDir();
+
+                // Get the field type for this entity
+                using Field_t = std::tuple_element_t<Is, FieldTuple>;
+                using BConds_t = BConds<Field_t, Dim>;
+                using value_type = typename Field_t::value_type;
+
+                // Create boundary conditions for this field
+                BConds_t bcField;
+
+                // Domain boundary faces are numbered:
+                // Face 0 = X lower (X=0 plane), Face 1 = X upper (X=max plane)
+                // Face 2 = Y lower (Y=0 plane), Face 3 = Y upper (Y=max plane)
+                // Face 4 = Z lower (Z=0 plane), Face 5 = Z upper (Z=max plane)
+                //
+                // An entity defined on a face F perpendicular to dimension d
+                // can have a BC if the entity does NOT vary in dimension d (i.e., entityDir[d] == false)
+                //
+                // Examples:
+                // - Vertex (entityDir = [false, false, false]): BCs on all faces
+                // - EdgeX (entityDir = [true, false, false]): BCs on Y and Z faces (faces 2,3,4,5)
+                // - FaceXY (entityDir = [true, true, false]): BCs on Z faces (faces 4,5)
+                // - Hexahedron (entityDir = [true, true, true]): No BCs
+
+                for (unsigned int face = 0; face < 2 * Dim; ++face) {
+                    // Determine which dimension this face is perpendicular to
+                    unsigned int perpDim = face / 2;
+
+                    // Does not have BC if entity does extend in the perpendicular dimension
+                    if (entityDir[perpDim]) {
+                        // Entity extends in perpendicular dimension, so it doesn't reach this face
+                        // Create NoBcFace to avoid null pointers
+                        bcField[face] = std::make_shared<NoBcFace<Field_t>>(face);
+                        continue;
+                    }
+
+                    // Apply the appropriate BC type for this face
+                    switch (bcTypes[face]) {
+                        case PERIODIC_FACE:
+                            bcField[face] = std::make_shared<PeriodicFace<Field_t>>(face);
+                            break;
+                        case ZERO_FACE:
+                            bcField[face] = std::make_shared<ZeroFace<Field_t>>(face);
+                            break;
+                        case CONSTANT_FACE:
+                            // For CONSTANT_FACE, use the stored constant value
+                            bcField[face] = std::make_shared<ConstantFace<Field_t>>(face, value_type(bcValues[face]));
+                            break;
+                        case EXTRAPOLATE_FACE:
+                            // For EXTRAPOLATE_FACE, use stored offset and slope values
+                            bcField[face] = std::make_shared<ExtrapolateFace<Field_t>>(face, value_type(bcValues[face]), value_type(bcSlopes[face]));
                             break;
                         case NO_FACE:
                             // For NO_FACE, create NoBcFace
@@ -405,26 +532,31 @@ namespace ippl {
     template <typename T, unsigned Dim, typename EntityTypes, typename DOFNums>
     template <typename Field>
     void FEMContainer<T, Dim, EntityTypes, DOFNums>::setFieldBC(const BConds<Field, Dim>& bconds) {
-        // Extract BC types and constant values from the BConds object
+        // Extract BC types, offset values, and slope values from the BConds object that need them
         std::array<FieldBC, 2*Dim> bcTypes;
-        bcValues_m.fill(0.0);  // Initialize constant values to zero
+        std::array<T, 2*Dim> bcValues{};  // Store offset values for CONSTANT_FACE and EXTRAPOLATE_FACE BCs
+        std::array<T, 2*Dim> bcSlopes{};  // Store slope values for EXTRAPOLATE_FACE BCs
 
         for (unsigned int face = 0; face < 2 * Dim; ++face) {
             auto bc = bconds[face];
             if (bc) {
                 bcTypes[face] = bc->getBCType();
 
-                // If it's a CONSTANT_FACE or EXTRAPOLATE_FACE, extract the offset value
+                // If it's a CONSTANT_FACE or EXTRAPOLATE_FACE, extract offset and slope values
+                // Both inherit from ExtrapolateFace, so both have getOffset() and getSlope()
                 if (bcTypes[face] == CONSTANT_FACE || bcTypes[face] == EXTRAPOLATE_FACE) {
-                    // The BC base class doesn't have getOffset(), so we need to cast to ExtrapolateFace
                     auto* extrapolateFace = dynamic_cast<ExtrapolateFace<Field>*>(bc.get());
                     if (extrapolateFace) {
                         auto offset = extrapolateFace->getOffset();
+                        auto slope = extrapolateFace->getSlope();
+
                         // Extract scalar from the field value type (might be DOFArray)
                         if constexpr (requires { offset[0]; }) {
-                            bcValues_m[face] = offset[0];  // DOFArray case
+                            bcValues[face] = offset[0];  // DOFArray case
+                            bcSlopes[face] = slope[0];
                         } else {
-                            bcValues_m[face] = offset;      // Scalar case
+                            bcValues[face] = offset;      // Scalar case
+                            bcSlopes[face] = slope;
                         }
                     }
                 }
@@ -434,7 +566,39 @@ namespace ippl {
         }
 
         // Now call the array-based setFieldBC with extracted types
-        setFieldBC(bcTypes);
+        setFieldBC(bcTypes, bcValues, bcSlopes);
+    }
+
+    // Get boundary conditions as BConds object (for solver compatibility)
+    template <typename T, unsigned Dim, typename EntityTypes, typename DOFNums>
+    BConds<Field<T, Dim, typename FEMContainer<T, Dim, EntityTypes, DOFNums>::Mesh_t, Cell>, Dim>
+    FEMContainer<T, Dim, EntityTypes, DOFNums>::getFieldBC() const {
+        using ScalarField_t = Field<T, Dim, Mesh_t, Cell>;
+        BConds<ScalarField_t, Dim> bconds;
+
+        // Construct BConds from stored types and values
+        for (unsigned int face = 0; face < 2 * Dim; ++face) {
+            switch (bcTypes_m[face]) {
+                case PERIODIC_FACE:
+                    bconds[face] = std::make_shared<PeriodicFace<ScalarField_t>>(face);
+                    break;
+                case ZERO_FACE:
+                    bconds[face] = std::make_shared<ZeroFace<ScalarField_t>>(face);
+                    break;
+                case CONSTANT_FACE:
+                    bconds[face] = std::make_shared<ConstantFace<ScalarField_t>>(face, bcValues_m[face]);
+                    break;
+                case EXTRAPOLATE_FACE:
+                    bconds[face] = std::make_shared<ExtrapolateFace<ScalarField_t>>(face, bcValues_m[face], bcSlopes_m[face]);
+                    break;
+                case NO_FACE:
+                default:
+                    bconds[face] = std::make_shared<NoBcFace<ScalarField_t>>(face);
+                    break;
+            }
+        }
+
+        return bconds;
     }
 
     template <typename T, unsigned Dim, typename EntityTypes, typename DOFNums>
