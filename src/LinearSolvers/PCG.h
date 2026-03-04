@@ -159,6 +159,151 @@ namespace ippl {
 
 
     template <typename OperatorRet, typename LowerRet, typename UpperRet, typename UpperLowerRet,
+              typename InverseDiagRet, typename DiagRet, typename T, unsigned Dim, typename EntityTypes, typename DOFNums>
+    class CG<OperatorRet, LowerRet, UpperRet, UpperLowerRet, InverseDiagRet, DiagRet, FEMContainer<T, Dim, EntityTypes, DOFNums>, FEMContainer<T, Dim, EntityTypes, DOFNums>>
+        : public SolverAlgorithm<FEMContainer<T, Dim, EntityTypes, DOFNums>, FEMContainer<T, Dim, EntityTypes, DOFNums>> {
+        using Base = SolverAlgorithm<FEMContainer<T, Dim, EntityTypes, DOFNums>, FEMContainer<T, Dim, EntityTypes, DOFNums>>;
+
+    public:
+        using typename Base::lhs_type, typename Base::rhs_type;
+        using OperatorF    = std::function<OperatorRet(lhs_type)>;
+        using LowerF       = std::function<LowerRet(lhs_type)>;
+        using UpperF       = std::function<UpperRet(lhs_type)>;
+        using UpperLowerF  = std::function<UpperLowerRet(lhs_type)>;
+        using InverseDiagF = std::function<InverseDiagRet(lhs_type)>;
+        using DiagF        = std::function<DiagRet(lhs_type)>;
+
+        virtual ~CG() = default;
+
+        /*!
+         * Sets the differential operator for the conjugate gradient algorithm
+         * @param op A function that returns OpRet and takes a field of the LHS type
+         */
+        virtual void setOperator(OperatorF op) { op_m = std::move(op); }
+        virtual void setPreconditioner(
+            [[maybe_unused]] OperatorF&& op,  // Operator passed to chebyshev and newton
+            [[maybe_unused]] LowerF&& lower,  // Operator passed to 2-step gauss-seidel and ssor
+            [[maybe_unused]] UpperF&& upper,  // Operator passed to 2-step gauss-seidel and ssor
+            [[maybe_unused]] UpperLowerF&&
+                upper_and_lower,  // Operator passed to 2-step gauss-seidel
+            [[maybe_unused]] InverseDiagF&&
+                inverse_diagonal,  // Operator passed to jacobi, 2-step gauss-seidel and ssor
+            [[maybe_unused]] DiagF&& diagonal,  // Operator passed to SSOR
+            [[maybe_unused]] double alpha,      // smallest eigenvalue of the operator
+            [[maybe_unused]] double beta,       // largest eigenvalue of the operator
+            [[maybe_unused]] std::string preconditioner_type =
+                "",  // Name of the preconditioner that should be used
+            [[maybe_unused]] int level =
+                5,  // This is a dummy default parameter, actual default parameter should be
+            // set in main
+            [[maybe_unused]] int degree =
+                31,  // This is a dummy default parameter, actual default parameter should
+            // be set in main
+            [[maybe_unused]] int richardson_iterations =
+                1,  // This is a dummy default parameter, actual default
+            // parameter should be set in main
+            [[maybe_unused]] int inner =
+                5,  // This is a dummy default parameter, actual default parameter should be
+            // set in main
+            [[maybe_unused]] int outer =
+                1,  // This is a dummy default parameter, actual default parameter should be
+            [[maybe_unused]] double omega =
+                1  // This is a dummy default parameter, actual default parameter should be
+                   // set in main
+        ) {}
+        /*!
+         * Query how many iterations were required to obtain the solution
+         * the last time this solver was used
+         * @return Iteration count of last solve
+         */
+        virtual int getIterationCount() { return iterations_m; }
+
+        virtual void operator()(lhs_type& lhs, rhs_type& rhs,
+                                const ParameterList& params) override {
+            typename lhs_type::Mesh_t mesh     = lhs.get_mesh();
+            typename lhs_type::Layout_t layout = lhs.getLayout();
+
+            iterations_m            = 0;
+            const int maxIterations = params.get<int>("max_iterations");
+
+            // Variable names mostly based on description in
+            // https://www.cs.cmu.edu/~quake-papers/painless-conjugate-gradient.pdf
+            lhs_type r(mesh, layout);
+            lhs_type d(mesh, layout);
+
+            auto lhsBCs = lhs.getFieldBC();
+            std::array<FieldBC, 2*Dim> bcTypes;
+
+            bool allFacesPeriodic = true;
+            for (unsigned int i = 0; i < 2 * Dim; ++i) {
+                FieldBC bcType = lhsBCs[i]->getBCType();
+                if (bcType == PERIODIC_FACE) {
+                    // If the LHS has periodic BCs, so does the residue
+                    bcTypes[i] = ippl::PERIODIC_FACE;
+                } else if (bcType & CONSTANT_FACE) {
+                    // If the LHS has constant BCs, the residue is zero on the BCs
+                    // Bitwise AND with CONSTANT_FACE will succeed for ZeroFace or ConstantFace
+                    bcTypes[i]            = ippl::ZERO_FACE;
+                    allFacesPeriodic = false;
+                } else {
+                    throw IpplException("PCG::operator()",
+                                        "Only periodic or constant BCs for LHS supported.");
+                    return;
+                }
+            }
+
+            r = rhs - op_m(lhs);
+            d = r.deepCopy();
+            d.setFieldBC(bcTypes);
+
+            T delta1          = innerProduct(r, d);
+            T delta0          = delta1;
+            residueNorm       = std::sqrt(delta1);
+            const T tolerance = params.get<T>("tolerance") * norm(rhs);
+
+            lhs_type q(mesh, layout);
+
+            while (iterations_m < maxIterations && residueNorm > tolerance) {
+                q = op_m(d);
+
+                T alpha = delta1 / innerProduct(d, q);
+                lhs     = lhs + alpha * d;
+
+                // The exact residue is given by
+                // r = rhs - op_m(lhs);
+                // This correction is generally not used in practice because
+                // applying the Laplacian is computationally expensive and
+                // the correction does not have a significant effect on accuracy;
+                // in some implementations, the correction may be applied every few
+                // iterations to offset accumulated floating point errors
+                r      = r - alpha * q;
+
+                delta0 = delta1;
+                delta1 = innerProduct(r, r);
+                T beta = delta1 / delta0;
+
+                residueNorm = std::sqrt(delta1);
+                d           = r + beta * d;
+
+                ++iterations_m;
+            }
+
+            if (allFacesPeriodic) {
+                T avg = lhs.getVolumeAverage();
+                lhs   = lhs - avg;
+            }
+        }
+
+        virtual T getResidue() const { return residueNorm; }
+
+    protected:
+        OperatorF op_m;
+        T residueNorm    = 0;
+        int iterations_m = 0;
+    };
+
+
+    template <typename OperatorRet, typename LowerRet, typename UpperRet, typename UpperLowerRet,
               typename InverseDiagRet, typename T>
     class CG<OperatorRet, LowerRet, UpperRet, UpperLowerRet, InverseDiagRet, FEMVector<T>, FEMVector<T> >
             : public SolverAlgorithm<FEMVector<T>, FEMVector<T>> {
@@ -465,120 +610,6 @@ namespace ippl {
     protected:
         std::unique_ptr<preconditioner<FieldLHS>> preconditioner_m;
     };
-
-
-    // Specialization for FEMContainer
-    template <typename OperatorRet, typename LowerRet, typename UpperRet, typename UpperLowerRet,
-              typename InverseDiagRet, typename DiagRet, typename T, unsigned Dim,
-              typename EntityTypes, typename DOFNums>
-    class CG<OperatorRet, LowerRet, UpperRet, UpperLowerRet, InverseDiagRet, DiagRet,
-             FEMContainer<T, Dim, EntityTypes, DOFNums>, FEMContainer<T, Dim, EntityTypes, DOFNums>>
-            : public SolverAlgorithm<FEMContainer<T, Dim, EntityTypes, DOFNums>,
-                                     FEMContainer<T, Dim, EntityTypes, DOFNums>> {
-        using Base = SolverAlgorithm<FEMContainer<T, Dim, EntityTypes, DOFNums>,
-                                     FEMContainer<T, Dim, EntityTypes, DOFNums>>;
-
-    public:
-        using typename Base::lhs_type, typename Base::rhs_type;
-        using OperatorF    = std::function<OperatorRet(lhs_type)>;
-        using LowerF       = std::function<LowerRet(lhs_type)>;
-        using UpperF       = std::function<UpperRet(lhs_type)>;
-        using UpperLowerF  = std::function<UpperLowerRet(lhs_type)>;
-        using InverseDiagF = std::function<InverseDiagRet(lhs_type)>;
-        using DiagF        = std::function<DiagRet(lhs_type)>;
-
-        virtual ~CG() = default;
-
-        virtual void setOperator(OperatorF op) { op_m = std::move(op); }
-        virtual void setPreconditioner(
-            [[maybe_unused]] OperatorF&& op,
-            [[maybe_unused]] LowerF&& lower,
-            [[maybe_unused]] UpperF&& upper,
-            [[maybe_unused]] UpperLowerF&& upper_and_lower,
-            [[maybe_unused]] InverseDiagF&& inverse_diagonal,
-            [[maybe_unused]] DiagF&& diagonal,
-            [[maybe_unused]] double alpha,
-            [[maybe_unused]] double beta,
-            [[maybe_unused]] std::string preconditioner_type = "",
-            [[maybe_unused]] int level = 5,
-            [[maybe_unused]] int degree = 31,
-            [[maybe_unused]] int richardson_iterations = 1,
-            [[maybe_unused]] int inner = 5,
-            [[maybe_unused]] int outer = 1,
-            [[maybe_unused]] double omega = 1
-        ) {}
-
-        virtual int getIterationCount() { return iterations_m; }
-
-        virtual void operator()(lhs_type& lhs, rhs_type& rhs,
-                                const ParameterList& params) override {
-            iterations_m            = 0;
-            const int maxIterations = params.get<int>("max_iterations");
-
-            // Create temporary fields using deepCopy
-            lhs_type r = lhs.deepCopy();
-            r = 0;
-            lhs_type d = lhs.deepCopy();
-            d = 0;
-
-            // Get BC types from lhs for applying to temporary fields
-            const auto bcTypes = lhs.getFieldBC();
-            r.setFieldBC(bcTypes);
-            d.setFieldBC(bcTypes);
-
-            // Check if all faces are periodic (for null space correction)
-            bool allFacesPeriodic = true;
-            for (unsigned int i = 0; i < 2 * Dim; ++i) {
-                if (bcTypes[i] != PERIODIC_FACE) {
-                    allFacesPeriodic = false;
-                    break;
-                }
-            }
-
-            r = rhs - op_m(lhs);
-            d = r.deepCopy();
-
-            T delta1          = innerProduct(r, d);
-            T delta0          = delta1;
-            residueNorm       = std::sqrt(delta1);
-            const T tolerance = params.get<T>("tolerance") * norm(rhs);
-
-            lhs_type q = lhs.deepCopy();
-            q = 0;
-            q.setFieldBC(bcTypes);
-
-            while (iterations_m < maxIterations && residueNorm > tolerance) {
-                q = op_m(d);
-
-                T alpha = delta1 / innerProduct(d, q);
-                lhs     = lhs + alpha * d;
-
-                r      = r - alpha * q;
-                delta0 = delta1;
-                delta1 = innerProduct(r, r);
-                T beta = delta1 / delta0;
-
-                residueNorm = std::sqrt(delta1);
-                d           = r + beta * d;
-                ++iterations_m;
-            }
-
-            // Apply null space correction if all faces are periodic
-            if (allFacesPeriodic) {
-                // Only works for first order FEM, getVolumeAverage needs to be updated for higher order
-                T avg = lhs.getVolumeAverage();
-                lhs   = lhs - avg;
-            }
-        }
-
-        virtual T getResidue() const { return residueNorm; }
-
-    protected:
-        OperatorF op_m;
-        int iterations_m = 0;
-        T residueNorm    = 0.0;
-    };
-
 };  // namespace ippl
 
 #endif
