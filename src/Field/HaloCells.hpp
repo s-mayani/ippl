@@ -53,15 +53,15 @@ namespace ippl {
 
             // Decode the neighbor index to determine which dimensions it differs in
             // The neighbor index is encoded as a base-3 number where:
-            // 0 = lower boundary, 1 = interior (IS_PARALLEL), 2 = upper boundary
+            // 0 = lower boundary, 1 = upper boundary, 2 = interior (IS_PARALLEL)
             size_t tempIndex = neighborIndex;
             for (unsigned d = 0; d < Dim; ++d) {
                 unsigned dimCode = tempIndex % 3;
                 tempIndex /= 3;
 
-                // If this dimension has a boundary (lower=0 or upper=2) and
+                // If this dimension has a boundary (lower=0 or upper=1) and
                 // we should NOT exchange in this dimension, skip this neighbor
-                if (dimCode != 1 && !exchangeDir[d]) {
+                if ((dimCode == 0 || dimCode == 1) && !exchangeDir[d]) {
                     return false;
                 }
             }
