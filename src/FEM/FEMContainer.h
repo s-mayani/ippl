@@ -1,59 +1,71 @@
 // Class FEMContainer
 // This class holds a collection of DOFs (degrees of freedom) for a finite element mesh.
-// The DOFs are stored on multiple ippl::Fields, split by different entity types (vertices, edges in x/y/z, faces in xy/xz/yz, etc.).
-// This allows for easy boundary condition application and field operations.
+// The DOFs are stored on multiple ippl::Fields, split by different entity types (vertices, edges in
+// x/y/z, faces in xy/xz/yz, etc.). This allows for easy boundary condition application and field
+// operations.
 
 #ifndef IPPL_FEMCONTAINER_H
 #define IPPL_FEMCONTAINER_H
 
-#include "Types/ViewTypes.h"
-#include "Field/HaloCells.h"
-#include "FEM/Entity.h"
-#include "DOFArray.h"
-#include "FEMHelperStructs.h"
-
-#include <vector>
-#include <memory>
 #include <memory>
 #include <tuple>
 #include <type_traits>
+#include <vector>
 
-namespace ippl {       
-    
+#include "Types/ViewTypes.h"
+
+#include "DOFArray.h"
+#include "FEM/Entity.h"
+#include "FEMHelperStructs.h"
+#include "Field/HaloCells.h"
+
+namespace ippl {
+
     template <typename T, unsigned Dim, typename EntityTypes, typename DOFNums>
     class FEMContainer {
-        public:
-        
+    public:
         // check that EntityTypes and DOFNums are tuples
         static_assert(is_tuple_v<EntityTypes>, "EntityTypes must be a std::tuple");
         static_assert(is_tuple_v<DOFNums>, "DOFNums must be a std::tuple");
         // Check, that EntityTypes and DOFNums have same size
-        static_assert(std::tuple_size_v<EntityTypes> == std::tuple_size_v<DOFNums>, "Number of EntityTypes must match number of DOFNums");
+        static_assert(std::tuple_size_v<EntityTypes> == std::tuple_size_v<DOFNums>,
+                      "Number of EntityTypes must match number of DOFNums");
         // Check that all EntityTypes are unique
         static_assert(!tuple_has_duplicates_v<EntityTypes>, "EntityTypes must be unique types");
         // Check that all EntityTypes are derived from Entity
         // Check that all EntityTypes are derived from Entity with matching dimension
-        static_assert([]{
-            bool all_derived = true;
-            std::apply([&all_derived](auto... entity_types) {
-                ((all_derived = all_derived && std::is_base_of_v<ippl::Entity<decltype(entity_types), Dim>, decltype(entity_types)>), ...);
-            }, EntityTypes{});
-            return all_derived;
-        }(), "All EntityTypes must be derived from Entity");
-        
+        static_assert(
+            [] {
+                bool all_derived = true;
+                std::apply(
+                    [&all_derived](auto... entity_types) {
+                        ((all_derived =
+                              all_derived
+                              && std::is_base_of_v<ippl::Entity<decltype(entity_types), Dim>,
+                                                   decltype(entity_types)>),
+                         ...);
+                    },
+                    EntityTypes{});
+                return all_derived;
+            }(),
+            "All EntityTypes must be derived from Entity");
+
         static constexpr unsigned dim = Dim;
-        using value_type = T;
-        
+        using value_type              = T;
+
         using Mesh_t      = UniformCartesian<T, Dim>;
         using Layout_t    = FieldLayout<Dim>;
-        using Centering_t = Cell; // This is only a placeholder since the template does nothing with it at the moment
-                                  // Actual centering is defined by the EntityTypes and done using the SubFieldLayout class
-        
+        using Centering_t = Cell;  // This is only a placeholder since the template does nothing
+                                   // with it at the moment Actual centering is defined by the
+                                   // EntityTypes and done using the SubFieldLayout class
+
         // Build tuple of field types
         using FieldTuple = typename FieldTupleBuilder<T, Dim, Mesh_t, EntityTypes, DOFNums>::type;
-        using ViewTuple = typename FieldTupleBuilder<T, Dim, Mesh_t, EntityTypes, DOFNums>::view_type;
+        using ViewTuple =
+            typename FieldTupleBuilder<T, Dim, Mesh_t, EntityTypes, DOFNums>::view_type;
 
-        static constexpr unsigned NEntitys = std::tuple_size_v<EntityTypes>; // Number of entity types with DOFs
+        static constexpr unsigned NEntitys =
+            std::tuple_size_v<EntityTypes>;  // Number of entity types with DOFs
 
         FEMContainer();
         FEMContainer(Mesh_t& m, const Layout_t& l, int nghost = 1);
@@ -63,18 +75,22 @@ namespace ippl {
 
         FEMContainer<T, Dim, EntityTypes, DOFNums> deepCopy() const;
 
-
         FEMContainer<T, Dim, EntityTypes, DOFNums>& operator=(T value);
-        FEMContainer<T, Dim, EntityTypes, DOFNums>& operator=(const FEMContainer<T,Dim, EntityTypes, DOFNums>& other);
+        FEMContainer<T, Dim, EntityTypes, DOFNums>& operator=(
+            const FEMContainer<T, Dim, EntityTypes, DOFNums>& other);
 
         FEMContainer<T, Dim, EntityTypes, DOFNums>& operator+=(T value);
-        FEMContainer<T, Dim, EntityTypes, DOFNums>& operator+=(const FEMContainer<T, Dim, EntityTypes, DOFNums>& other);
+        FEMContainer<T, Dim, EntityTypes, DOFNums>& operator+=(
+            const FEMContainer<T, Dim, EntityTypes, DOFNums>& other);
 
         FEMContainer<T, Dim, EntityTypes, DOFNums>& operator-=(T value);
-        FEMContainer<T, Dim, EntityTypes, DOFNums>& operator-=(const FEMContainer<T, Dim, EntityTypes, DOFNums>& other);
+        FEMContainer<T, Dim, EntityTypes, DOFNums>& operator-=(
+            const FEMContainer<T, Dim, EntityTypes, DOFNums>& other);
 
-        FEMContainer<T, Dim, EntityTypes, DOFNums> operator+(const FEMContainer<T, Dim, EntityTypes, DOFNums>& other) const;
-        FEMContainer<T, Dim, EntityTypes, DOFNums> operator-(const FEMContainer<T, Dim, EntityTypes, DOFNums>& other) const;
+        FEMContainer<T, Dim, EntityTypes, DOFNums> operator+(
+            const FEMContainer<T, Dim, EntityTypes, DOFNums>& other) const;
+        FEMContainer<T, Dim, EntityTypes, DOFNums> operator-(
+            const FEMContainer<T, Dim, EntityTypes, DOFNums>& other) const;
 
         FEMContainer<T, Dim, EntityTypes, DOFNums> operator+(T scalar) const;
         FEMContainer<T, Dim, EntityTypes, DOFNums> operator-(T scalar) const;
@@ -85,7 +101,8 @@ namespace ippl {
         T min() const;
 
         // Friend function for scalar * FEMContainer
-        friend FEMContainer<T, Dim, EntityTypes, DOFNums> operator*(T scalar, const FEMContainer<T, Dim, EntityTypes, DOFNums>& container) {
+        friend FEMContainer<T, Dim, EntityTypes, DOFNums> operator*(
+            T scalar, const FEMContainer<T, Dim, EntityTypes, DOFNums>& container) {
             return container * scalar;
         }
 
@@ -96,39 +113,41 @@ namespace ippl {
 
         // Friend function for inner product (callable as ippl::innerProduct via ADL)
         friend T innerProduct(const FEMContainer<T, Dim, EntityTypes, DOFNums>& a,
-                             const FEMContainer<T, Dim, EntityTypes, DOFNums>& b) {
+                              const FEMContainer<T, Dim, EntityTypes, DOFNums>& b) {
             T localSum = 0.0;
 
             // Compute inner product over all fields in the tuple
             [&]<std::size_t... Is>(std::index_sequence<Is...>) {
                 (([&]() {
-                    const auto& field_a = std::get<Is>(a.data_m);
-                    const auto& field_b = std::get<Is>(b.data_m);
-                    auto view_a = field_a.getView();
-                    auto view_b = field_b.getView();
+                     const auto& field_a = std::get<Is>(a.data_m);
+                     const auto& field_b = std::get<Is>(b.data_m);
+                     auto view_a         = field_a.getView();
+                     auto view_b         = field_b.getView();
 
-                    // Compute local inner product by iterating over view
-                    T fieldLocalSum = 0.0;
-                    constexpr unsigned numDOFs = numDOFs_m[Is];
+                     // Compute local inner product by iterating over view
+                     T fieldLocalSum            = 0.0;
+                     constexpr unsigned numDOFs = numDOFs_m[Is];
 
-                    using exec_space = typename std::remove_reference_t<decltype(field_a)>::execution_space;
-                    using index_array_type = typename RangePolicy<Dim, exec_space>::index_array_type;
+                     using exec_space =
+                         typename std::remove_reference_t<decltype(field_a)>::execution_space;
+                     using index_array_type =
+                         typename RangePolicy<Dim, exec_space>::index_array_type;
 
-                    ippl::parallel_reduce("FEMContainer innerProduct field",
-                        field_a.getFieldRangePolicy(),
-                        KOKKOS_LAMBDA(const index_array_type& args, T& val) {
-                            // Compute dot product of DOFArrays at this position
-                            auto dof_a = apply(view_a, args);
-                            auto dof_b = apply(view_b, args);
-                            for (unsigned dof = 0; dof < numDOFs; ++dof) {
-                                val += dof_a[dof] * dof_b[dof];
-                            }
-                        },
-                        Kokkos::Sum<T>(fieldLocalSum)
-                    );
+                     ippl::parallel_reduce(
+                         "FEMContainer innerProduct field", field_a.getFieldRangePolicy(),
+                         KOKKOS_LAMBDA(const index_array_type& args, T& val) {
+                             // Compute dot product of DOFArrays at this position
+                             auto dof_a = apply(view_a, args);
+                             auto dof_b = apply(view_b, args);
+                             for (unsigned dof = 0; dof < numDOFs; ++dof) {
+                                 val += dof_a[dof] * dof_b[dof];
+                             }
+                         },
+                         Kokkos::Sum<T>(fieldLocalSum));
 
-                    localSum += fieldLocalSum;
-                }()), ...);
+                     localSum += fieldLocalSum;
+                 }()),
+                 ...);
             }(std::make_index_sequence<NEntitys>{});
 
             // Global sum across MPI ranks
@@ -157,18 +176,18 @@ namespace ippl {
 
         // Access individual layouts
         template <typename EntityType>
-        Layout_t& getLayout() { 
+        Layout_t& getLayout() {
             constexpr unsigned index = TagIndex<EntityTypes>::template index<EntityType>();
-            return std::get<index>(layout_m); 
+            return std::get<index>(layout_m);
         }
 
         // Const access individual layouts
         template <typename EntityType>
-        const Layout_t& getLayout() const { 
+        const Layout_t& getLayout() const {
             constexpr unsigned index = TagIndex<EntityTypes>::template index<EntityType>();
-            return std::get<index>(layout_m); 
+            return std::get<index>(layout_m);
         }
-        
+
         // Get the number of DOFs for each entity type
         template <typename EntityType>
         unsigned getNumDOFs() const {
@@ -183,7 +202,9 @@ namespace ippl {
         }
 
         template <typename EntityType>
-        const decltype(std::tuple_element_t<TagIndex<EntityTypes>::template index<EntityType>(), FieldTuple>())::view_type& getView() const {
+        const decltype(std::tuple_element_t<TagIndex<EntityTypes>::template index<EntityType>(),
+                                            FieldTuple>())::view_type&
+        getView() const {
             // Get index of EntityType in EntityTypes
             constexpr unsigned index = TagIndex<EntityTypes>::template index<EntityType>();
 
@@ -212,33 +233,34 @@ namespace ippl {
             return views;
         }
 
-        constexpr static auto getEntityTypes() {
-            return EntityTypes{};
-        }
+        constexpr static auto getEntityTypes() { return EntityTypes{}; }
 
         /**
          * @brief Set boundary conditions for all entity type fields
          *
          * Takes an array specifying which BC type to apply on each boundary face
          * and applies corresponding boundary conditions to each field in the container.
-         * 
-         * Only allowed for BC types that do not require constant values, i.e., PERIODIC_FACE, ZERO_FACE, NO_FACE.
+         *
+         * Only allowed for BC types that do not require constant values, i.e., PERIODIC_FACE,
+         * ZERO_FACE, NO_FACE.
          *
          * @param bcTypes Array of boundary condition types for each face (0 to 2*Dim-1)
          */
-        void setFieldBC(const std::array<FieldBC, 2*Dim>& bcTypes);
+        void setFieldBC(const std::array<FieldBC, 2 * Dim>& bcTypes);
 
         /**
          * @brief Set boundary conditions for all entity type fields
          *
          * Takes an array specifying which BC type to apply on each boundary face
          * and applies corresponding boundary conditions to each field in the container.
-         * 
-         * Allowed for all BC types, contant values needed for CONSTANT_FACE and EXTRAPOLATE_FACE given in bcValues and bcSlopes arrays.
+         *
+         * Allowed for all BC types, contant values needed for CONSTANT_FACE and EXTRAPOLATE_FACE
+         * given in bcValues and bcSlopes arrays.
          *
          * @param bcTypes Array of boundary condition types for each face (0 to 2*Dim-1)
          */
-        void setFieldBC(const std::array<FieldBC, 2*Dim>& bcTypes, std::array<T, 2*Dim> bcValues, std::array<T, 2*Dim> bcSlopes);
+        void setFieldBC(const std::array<FieldBC, 2 * Dim>& bcTypes,
+                        std::array<T, 2 * Dim> bcValues, std::array<T, 2 * Dim> bcSlopes);
 
         /**
          * @brief Set boundary conditions from a BConds object
@@ -260,7 +282,7 @@ namespace ippl {
          *
          * @return Const reference to array of boundary condition types
          */
-        const std::array<FieldBC, 2*Dim>& getFieldBCTypes() const { return bcTypes_m; }
+        const std::array<FieldBC, 2 * Dim>& getFieldBCTypes() const { return bcTypes_m; }
 
         /**
          * @brief Get boundary conditions as BConds object
@@ -290,33 +312,33 @@ namespace ippl {
         void assignGhostToPhysical();
 
     private:
-
-
         // Helperfunction to create numDOFs_m array
         template <unsigned... DOFNum>
-        static constexpr std::array<unsigned, NEntitys> createNumDOFsArray(std::tuple<std::integral_constant<unsigned, DOFNum>...>) {
-            return std::array<unsigned, NEntitys>{ DOFNum... };
+        static constexpr std::array<unsigned, NEntitys> createNumDOFsArray(
+            std::tuple<std::integral_constant<unsigned, DOFNum>...>) {
+            return std::array<unsigned, NEntitys>{DOFNum...};
         }
 
-        static constexpr std::array<unsigned, NEntitys> numDOFs_m = createNumDOFsArray(DOFNums{}); // Number of DOFs for each field
+        static constexpr std::array<unsigned, NEntitys> numDOFs_m =
+            createNumDOFsArray(DOFNums{});  // Number of DOFs for each field
 
-        
-        FieldTuple data_m; // Fields with DOFs for each entity type with DOFs
+        FieldTuple data_m;  // Fields with DOFs for each entity type with DOFs
 
-        std::array<SubFieldLayout<Dim>, NEntitys> layout_m;   // Layouts for each entity type with DOFs
+        std::array<SubFieldLayout<Dim>, NEntitys>
+            layout_m;  // Layouts for each entity type with DOFs
 
         int nghost_m;
 
-        Mesh_t* mesh_m; // Pointer to the mesh
+        Mesh_t* mesh_m;  // Pointer to the mesh
 
-        Layout_t* VertexLayout_m; // Layout of vertices
+        Layout_t* VertexLayout_m;  // Layout of vertices
 
-        std::array<FieldBC, 2*Dim> bcTypes_m;   // Boundary condition types for each face
-        std::array<T, 2*Dim> bcValues_m{};      // Offset values for CONSTANT_FACE and EXTRAPOLATE_FACE BCs
-        std::array<T, 2*Dim> bcSlopes_m{};      // Slope values for EXTRAPOLATE_FACE BCs (default 1.0)
+        std::array<FieldBC, 2 * Dim> bcTypes_m;  // Boundary condition types for each face
+        std::array<T, 2 * Dim>
+            bcValues_m{};  // Offset values for CONSTANT_FACE and EXTRAPOLATE_FACE BCs
+        std::array<T, 2 * Dim> bcSlopes_m{};  // Slope values for EXTRAPOLATE_FACE BCs (default 1.0)
     };
-}   // namespace ippl
-
+}  // namespace ippl
 
 #include "FEMContainer.hpp"
 
