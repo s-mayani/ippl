@@ -22,6 +22,16 @@
 
 namespace ippl {
 
+    // Forward declaration of class to be able to declare norm in ippl namespace
+    template <typename T, unsigned Dim, typename EntityTypes, typename DOFNums>
+    class FEMContainer;
+
+    // Declare norm outside of class (callable as ippl::norm)
+    template <typename T, unsigned Dim, typename EntityTypes, typename DOFNums>
+    T norm(const FEMContainer<T, Dim, EntityTypes, DOFNums>& container, int p = 2) {
+        return container.norm(p);
+    }
+
     template <typename T, unsigned Dim, typename EntityTypes, typename DOFNums>
     class FEMContainer {
     public:
@@ -105,11 +115,6 @@ namespace ippl {
         friend FEMContainer<T, Dim, EntityTypes, DOFNums> operator*(
             T scalar, const FEMContainer<T, Dim, EntityTypes, DOFNums>& container) {
             return container * scalar;
-        }
-
-        // Friend function for norm (callable as ippl::norm via ADL)
-        friend T norm(const FEMContainer<T, Dim, EntityTypes, DOFNums>& container, int p = 2) {
-            return container.norm(p);
         }
 
         template <typename TA, typename TB>
