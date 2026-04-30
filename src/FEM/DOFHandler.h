@@ -208,12 +208,12 @@ namespace ippl {
         /**
          * @brief Fill DOF mapping table for Lagrange elements
          */
-        void fillLagrangeDOFMappingTable(Kokkos::View<DOFMapping*>::HostMirror& hostTable) const;
+        void fillLagrangeDOFMappingTable(typename Kokkos::View<DOFMapping*>::HostMirror& hostTable) const;
 
         /**
          * @brief Fill DOF mapping table for Nédélec elements
          */
-        void fillNedelecDOFMappingTable(Kokkos::View<DOFMapping*>::HostMirror& hostTable) const;
+        void fillNedelecDOFMappingTable(typename Kokkos::View<DOFMapping*>::HostMirror& hostTable) const;
     };
 
     ///////////////////////////////////////////////////////////////////////

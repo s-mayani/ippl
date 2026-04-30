@@ -226,7 +226,7 @@ namespace ippl {
         }
 
         template <typename EntityType>
-        const decltype(std::tuple_element_t<TagIndex<EntityTypes>::template index<EntityType>(),
+        const typename decltype(std::tuple_element_t<TagIndex<EntityTypes>::template index<EntityType>(),
                                             FieldTuple>())::view_type&
         getView() const {
             // Get index of EntityType in EntityTypes
