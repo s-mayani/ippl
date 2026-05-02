@@ -554,7 +554,7 @@ namespace ippl {
 
         // 1. Compute the Galerkin element matrix A_K
         for (size_t i = 0; i < numElementDOFs; ++i) {
-            for (size_t j = 0; j < numElementDOFs; ++j) {
+            for (size_t j = 0; j < i; ++j) {
                 A_K[i][j] = 0.0;
                 for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
                     A_K[i][j] += w[k] * evalFunction(i, j, grad_b_q[k]);
@@ -623,10 +623,6 @@ namespace ippl {
 
                     for (j = 0; j < numElementDOFs; ++j) {
                         J_nd = global_dof_ndindices[j];
-
-                        if (global_dofs[i] >= global_dofs[j]) {
-                            continue;
-                        }
 
                         // Skip boundary DOFs (Zero & Constant Dirichlet BCs)
                         if (((bcType == ZERO_FACE) || (bcType == CONSTANT_FACE)) 
@@ -696,7 +692,7 @@ namespace ippl {
 
         // 1. Compute the Galerkin element matrix A_K
         for (size_t i = 0; i < numElementDOFs; ++i) {
-            for (size_t j = 0; j < numElementDOFs; ++j) {
+            for (size_t j = i + 1; j < numElementDOFs; ++j) {
                 A_K[i][j] = 0.0;
                 for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
                     A_K[i][j] += w[k] * evalFunction(i, j, grad_b_q[k]);
@@ -766,10 +762,6 @@ namespace ippl {
                     for (j = 0; j < numElementDOFs; ++j) {
                         J_nd = global_dof_ndindices[j];
 
-                        if (global_dofs[i] <= global_dofs[j]) {
-                            continue;
-                        }
-
                         // Skip boundary DOFs (Zero & Constant Dirichlet BCs)
                         if (((bcType == ZERO_FACE) || (bcType == CONSTANT_FACE)) 
                             && this->isDOFOnBoundary(J_nd)) {
@@ -838,11 +830,12 @@ namespace ippl {
 
         // 1. Compute the Galerkin element matrix A_K
         for (size_t i = 0; i < numElementDOFs; ++i) {
-            for (size_t j = 0; j < numElementDOFs; ++j) {
+            for (size_t j = 0; j < i; ++j) {
                 A_K[i][j] = 0.0;
                 for (size_t k = 0; k < QuadratureType::numElementNodes; ++k) {
                     A_K[i][j] += w[k] * evalFunction(i, j, grad_b_q[k]);
                 }
+                A_K[j][i] = A_K[i][j];
             }
         }
 
