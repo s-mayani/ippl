@@ -128,6 +128,23 @@ namespace ippl {
         Kokkos::fence();
     }
 
+    template <typename T, unsigned Dim, unsigned Order, typename ElementType,
+              typename QuadratureType, typename FieldType>
+    KOKKOS_FUNCTION bool NedelecSpace<T, Dim, Order, ElementType, QuadratureType, FieldType>::
+        ownsElement(const indices_t& elementPos) const {
+        for (size_t i = 0; i < elementIndices.extent(0); ++i) {
+            const indices_t pos = this->getElementNDIndex(elementIndices(i));
+            bool match          = true;
+            for (unsigned d = 0; d < Dim; ++d) {
+                match = match && (pos[d] == elementPos[d]);
+            }
+            if (match) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     ///////////////////////////////////////////////////////////////////////
     /// Degree of Freedom operations //////////////////////////////////////
     ///////////////////////////////////////////////////////////////////////

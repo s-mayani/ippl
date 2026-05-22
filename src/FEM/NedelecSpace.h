@@ -120,6 +120,11 @@ namespace ippl {
          */
         NDIndex<Dim> getLocalNDIndex() const { return layout_m.getLocalNDIndex(); }
 
+        /**
+         * @brief Whether this rank owns the mesh element at the given ND index.
+         */
+        KOKKOS_FUNCTION bool ownsElement(const indices_t& elementPos) const;
+
         /// Degree of Freedom operations //////////////////////////////////////
         ///////////////////////////////////////////////////////////////////////
 
