@@ -16,7 +16,7 @@ namespace ippl::preconditioner_validation {
             throw IpplException(caller_name.c_str(),
                                 ("Unknown preconditioner_type '" + preconditioner_type
                                  + "'. Supported types: jacobi, newton, chebyshev, richardson, "
-                                   "richardson_alt, gauss-seidel, ssor")
+                                   "richardson_alt, gauss-seidel, ssor, multigrid")
                                     .c_str());
         }
     }

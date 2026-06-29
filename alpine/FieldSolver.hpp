@@ -29,7 +29,7 @@ private:
         int mg_pre_smooth_iters  = ippl::pcg_preconditioner_defaults::mg_pre_smooth;
         int mg_post_smooth_iters = ippl::pcg_preconditioner_defaults::mg_post_smooth;
         double mg_omega          = ippl::pcg_preconditioner_defaults::mg_omega;
-        int mg_min_cells         = ippl::pcg_preconditioner_defaults::mg_min_cells;
+        unsigned mg_min_cells    = ippl::pcg_preconditioner_defaults::mg_min_cells;
     };
 
     Field_t<Dim>* rho_m;
@@ -120,7 +120,9 @@ private:
         ippl::preconditioner_validation::sanitizeParams(
             parsed.type, warn, parsed.newton_level, parsed.chebyshev_degree,
             parsed.richardson_iterations, parsed.gauss_seidel_inner_iterations,
-            parsed.gauss_seidel_outer_iterations, parsed.ssor_omega, &parsed.communication);
+            parsed.gauss_seidel_outer_iterations, parsed.ssor_omega, &parsed.communication,
+            parsed.mg_pre_smooth_iters, parsed.mg_post_smooth_iters, parsed.mg_omega, 
+            parsed.mg_min_cells);
 
         return parsed;
     }

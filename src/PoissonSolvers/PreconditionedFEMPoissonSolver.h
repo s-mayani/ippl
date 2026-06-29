@@ -195,12 +195,29 @@ namespace ippl {
             int outer    = this->params_m.template get<int>("gauss_seidel_outer_iterations");
             double omega = this->params_m.template get<double>("ssor_omega");
             int richardson_iterations = this->params_m.template get<int>("richardson_iterations");
+            int communication = this->params_m.template get<int>("communication");
+
+            // Extract Multigrid params
+            int mg_pre = this->params_m.template get<int>(
+                "mg_pre_smooth_iters", pcg_preconditioner_defaults::mg_pre_smooth);
+            int mg_post = this->params_m.template get<int>(
+                "mg_post_smooth_iters", pcg_preconditioner_defaults::mg_post_smooth);
+            double mg_omega = this->params_m.template get<double>(
+                "mg_omega", pcg_preconditioner_defaults::mg_omega);
+            unsigned mg_min_cells = static_cast<unsigned>(this->params_m.template get<int>(
+                "min_cells_per_rank_per_dim",
+                static_cast<int>(pcg_preconditioner_defaults::mg_min_cells)));
+            bool mg_communication = communication;
+
             preconditioner_validation::sanitizeParams(preconditioner_type, warn, level, degree,
-                                                     richardson_iterations, inner, outer, omega);
+                                                     richardson_iterations, inner, outer, omega,
+                                                     &communication, mg_pre, mg_post, mg_omega,
+                                                     mg_min_cells);
 
             pcg_algo_m.setPreconditioner(algoOperator, algoOperatorL, algoOperatorU, algoOperatorUL,
                                          algoOperatorInvD, algoOperatorD, 0, 0, preconditioner_type,
-                                         level, degree, richardson_iterations, inner, outer, omega);
+                                         level, degree, richardson_iterations, inner, outer, omega, 
+                                         mg_pre, mg_post, mg_omega, mg_min_cells, mg_communication);
 
             pcg_algo_m.setOperator(algoOperator);
 
